@@ -87,6 +87,12 @@ To deploy the framework automatically, after performing Replace in Files (3.1) a
 ./cf/setup/automated_deployment.sh
 ```
 #### 3.2.2 Advanced Install with Slack Integration
+You can optionally install this solution to post CodePipeline notifications to a Slack Channel.  
+
+**-- Slack Channel Pipeline Notifications Screenshot --**
+
+![DevSecOps Slack Integration](http://devsecops-cicd-public-assets.s3-website-ap-southeast-2.amazonaws.com/examples/slack_example.png)
+
 1. Create a Slack App
    1. Navigate to https://api.slack.com/apps?new_app=1
    2. Create New App >> From Scratch. 
@@ -100,8 +106,14 @@ To deploy the framework automatically, after performing Replace in Files (3.1) a
 ./cf/setup/automated_deployment.sh --i "slack" -c "SLACKCHANNELNAME" -d "SLACKWEBHOOKPATH"
 ```
 #### 3.2.3 Advanced Install with MS Teams Integration
+You can optionally install this solution to post CodePipeline notifications to a MS Teams Channel.  
+
+**-- MS Teams Channel Pipeline Notifications Screenshot --**
+
+![DevSecOps MS Teams Integration](http://devsecops-cicd-public-assets.s3-website-ap-southeast-2.amazonaws.com/examples/msteam_example.png)
+
 1. Create an Incoming Webhook Connector in your Channel
-	1. Navigate to the channel you want Pipeline notifications to appear
+	1. Navigate to the channel you want pipeline notifications to appear
 	2. Select 'Connectors' from the channel options menu
 	3. In 'Search' find 'Incoming Webhook'
 	4. Input a name, image and 'Create'
