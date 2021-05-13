@@ -1,0 +1,57 @@
+version: 0.2
+#Paths are relative to project root
+phases:
+  install:
+    commands: 
+      - orignpmversion=$(npm -v)
+      - echo "original npm version:" $orignpmversion
+      - npm i npm@latest -g
+      - currentnpmversion=$(npm -v)
+      - echo "current npm version:" $currentnpmversion
+      - npm install -g jsonlint
+      - npm install -g node-lambda
+  pre_build:
+    commands:
+      # Setting up build for Lambda NodeJS Functions
+      - cd $CODEBUILD_SRC_DIR/
+      - chmod +x ./cf/cicd/*.sh
+      # Validating CFN Templates
+      - echo "Validating CFN templates"
+      # This fancy line compiles all yaml in our project folder excluding the '_template' folder
+      - |
+        for f in $(find ./cf/project -type d \( -name _template \) -prune -false -o -name '*.yaml' -o -name '*.yml'); do
+          echo "Validating CloudFormation template file $f"
+          aws cloudformation validate-template --template-body file://$f
+        done
+      - |
+        for conf in ./cf/project/parameters/*.json; do
+          echo "Validating CFN parameters config file $conf"
+          jsonlint -q $conf
+        done
+  build:
+    commands:
+      # Package Lambdas as ZIP
+      - pwd
+      - cd $CODEBUILD_SRC_DIR/
+      - pwd
+      - ./cf/cicd/build_lambdas.sh
+      # Create unique Build Guid
+      - buildGuid=$(date +"%Y%m%d%H%S")
+      # Copy stacks to S3
+      - echo "Copying stack templates to S3"
+      - |
+        for cf_template in $(find ./cf/project -type d \( -name _template \) -prune -false -o -name '*.yaml' -o -name '*.yml'); do
+          templateName="$(echo $cf_template | rev | cut -d'/' -f 1 | rev)"
+          templateOutputName="$(echo $templateName | cut -d '.' -f 1 | awk '{print $1"_output.yaml"}')"
+          echo "$templateName"
+          echo "$templateOutputName"
+          aws cloudformation package --template-file $cf_template --output-template-file $templateOutputName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
+          aws s3 cp "$templateOutputName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateOutputName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
+        done
+      # Replace placeholder buidguid pram
+      - sed -i "s/>>PLACEHOLDER_BUILD_GUID<</${buildGuid}/g" ./cf/project/parameters/prod.json
+      - sed -i "s/>>PLACEHOLDER_BUILD_GUID<</${buildGuid}/g" ./cf/project/parameters/test.json
+artifacts:
+  files:
+    - ./MasterStack_output.yaml
+    - ./cf/project/parameters/*.json

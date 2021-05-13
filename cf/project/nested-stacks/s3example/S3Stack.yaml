@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Test deployment of an S3 Bucket"
+
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Description: Enter an friendly project name for Tagging
+  ProjectResourcePrefix:
+    Type: String
+    Description: Enter a unique prefix for the project resources.
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - prod
+      - test
+    Description: Enter destination environment type
+  EnvironmentFriendlyName:
+    Type: String
+    Description: Friendly environment name of project
+  #Project Specific Parameters >>
+
+  #<< Project Specific Parameters
+
+Resources:
+
+  TestS3Deploy:
+    Type: AWS::S3::Bucket
+    # DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      Tags:
+          -
+            Key: "Project"
+            Value:
+              !Sub "${ProjectFriendlyName}"
+          -
+            Key: "Environment"
+            Value: !Ref EnvironmentFriendlyName
+          -
+            Key: "Purpose"
+            Value: "Pipeline Orchestration"

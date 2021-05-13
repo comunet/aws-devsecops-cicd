@@ -1,0 +1,13 @@
+{
+  "name": "sns_to_slack",
+  "version": "1.0.0",
+  "description": "Script to subscribe and push SNS notifications from CodePipeline to a slack channel",
+  "main": "index.js",
+  "keywords": [
+    "sns",
+    "codepipeline",
+    "slack"
+  ],
+  "author": "",
+  "license": "ISC"
+}

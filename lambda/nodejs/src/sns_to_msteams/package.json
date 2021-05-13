@@ -1,0 +1,12 @@
+{
+  "name": "sns_to_msteams",
+  "version": "1.0.0",
+  "description": "Script to subscribe and push SNS notifications from CodePipeline to a Ms Teams Channel",
+  "main": "index.js",
+  "keywords": [
+    "sns",
+    "codepipeline"
+  ],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Setup Stack (1) CodePipeline Cross Account Deployment Stack"
+
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - main
+      - dev
+    Description: Enter destination environment type
+    Default: main
+
+  AWSManagementAccountNumber:
+    Type: String
+
+
+Mappings: 
+  EnvironmentFriendlyName: 
+    main: 
+      Name: DevSecOps PROD and TEST Env
+    dev: 
+      Name: DevSecOps DEV Env
+
+Resources:
+
+  LambdaArtifactBucket:
+    Type: AWS::S3::Bucket
+    # DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-lambda"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      Tags:
+          -
+            Key: "Project"
+            Value:
+              !Sub "${ProjectFriendlyName}"
+          -
+            Key: "Environment"
+            Value: !FindInMap [EnvironmentFriendlyName, !Ref EnvironmentType, Name]
+          -
+            Key: "Purpose"
+            Value: "Lambda Build Artifacts"
+
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    # DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: False
+      Tags:
+          -
+            Key: "Project"
+            Value:
+              !Sub "${ProjectFriendlyName}"
+          -
+            Key: "Environment"
+            Value: !FindInMap [EnvironmentFriendlyName, !Ref EnvironmentType, Name]
+          -
+            Key: "Purpose"
+            Value: "Pipeline Orchestration"
+
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Used by Assumed Roles in Dev/Test/Prod accounts to Encrypt/Decrypt artifact code
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: !Ref AWS::StackName
+        Statement:
+          -
+            Sid: Allows admin of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - kms:*
+            Resource: "*"
+          -
+            Sid: Allow use of key in Target account
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWSManagementAccountNumber}:root
+                # If adding additional accounts put them just in here! and add the parameter up the top!
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+  KMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/kms-${ProjectResourcePrefix}-${EnvironmentType}"
+      TargetKeyId: !Ref KMSKey
+
+  PipelineArtifactBucketPolicy:         
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket:
+        Ref: PipelineArtifactBucket
+      PolicyDocument:
+        Statement:
+          - 
+            Sid: "DenyUnEncryptedObjectUploads"
+            Effect: Deny
+            Action:
+            - 's3:PutObject'
+            Principal: "*"
+            Resource: !Sub 'arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*'
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption:
+                  - "aws:kms"
+          - 
+            Sid: "DenyInsecureConnections"
+            Effect: Deny
+            Action:
+            - 's3:*'
+            Principal: "*"
+            Resource: !Sub 'arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*'
+            Condition:
+              Bool:
+                aws:SecureTransport:
+                  - "false"
+          - 
+            Sid: "PipelineToArtifactsBucketPutGet"
+            Effect: Allow
+            Action:
+            - 's3:Get*'
+            - 's3:Put*'
+            Principal: 
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource: !Sub 'arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*'
+          - 
+            Sid: "PipelineToArtifactsBucketList"
+            Effect: Allow
+            Action:
+            - 's3:ListBucket'
+            Principal: 
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource: !Sub 'arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild'
+          - 
+            Sid: "TargetToArtifactsBucketGetPut"
+            Effect: Allow
+            Action:
+            - 's3:Get*'
+            - 's3:Put*'
+            Principal: 
+              AWS:
+                - !Sub "arn:aws:iam::${AWSManagementAccountNumber}:root"
+            Resource: !Sub 'arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*'
+          - 
+            Sid: "TargetToArtifactsBucketList"
+            Effect: Allow
+            Action:
+            - 's3:ListBucket'
+            Principal: 
+              AWS:
+                - !Sub "arn:aws:iam::${AWSManagementAccountNumber}:root"
+            Resource: !Sub 'arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild'
+
+Outputs:
+  ProjectResourcePrefix:
+    Description: "The unique prefix given to project/application"
+    Value: !Ref ProjectResourcePrefix
+  
+  ProjectFriendlyName:
+    Description: "The user-friendly name given to project/application"
+    Value: !Ref ProjectFriendlyName
+  
+  EnvironmentType:
+    Description: "The destination environment type of this pipeline for the project/application"
+    Value: !Ref EnvironmentType
+
+  StackName:
+    Description: "Name of this pipeline stack"
+    Value: !Ref AWS::StackName
+
+  CodePipelineKMSKeyArn:
+    Description: "The KMS Arn used for Cross-account deployment of this pipeline"
+    Value: !GetAtt KMSKey.Arn
+    Export:
+      Name: !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"

@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup Stack (1) Create CodeCommit Repo in Sandboxed Account
+
+Parameters:
+  #Application Generic Parameters
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+Resources:
+  ProjectCodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties: 
+      RepositoryDescription: !Ref ProjectFriendlyName
+      RepositoryName: !Sub "${ProjectResourcePrefix}-repo"
+      Tags:
+        - Key: Name
+          Value: CodeCommit Repo
+        - Key: Project
+          Value:
+            Ref: ProjectFriendlyName
+        - Key: Purpose
+          Value: Code Repository
+Outputs:
+  ProjectCodeCommitRepoArn:
+    Description: Project CodeCommit Repo Arn
+    Value: !GetAtt  ProjectCodeCommitRepo.Arn
+    Export:
+      Name: !Sub "${ProjectResourcePrefix}-repo-arn"

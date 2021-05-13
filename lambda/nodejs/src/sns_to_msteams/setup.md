@@ -1,0 +1,2 @@
+https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook
+https://pythoncircle.com/post/725/how-to-post-messages-to-microsoft-teams-channel-using-python/

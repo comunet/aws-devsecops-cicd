@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup Stack (3) Creates Sandboxed IAM Role for CodePipeline to access CodeCommit
+
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - main
+      - dev
+    Description: Enter destination environment type
+    Default: main 
+
+  AWSDeploymentAccountNumber:
+    Description: AWS Account Number for account running CodePipeline DEPLOYMENT Account
+    Type: String
+    Default: '011111122222'
+
+  KMSKeyArn:
+    Description: ARN of the unique Project KMS key created in the DEPLOYMENT Account
+    Type: String
+    Default: 'arn:aws:kms:us-east-1:011111122222:key/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+
+
+
+Mappings: 
+  EnvironmentFriendlyName: 
+    main: 
+      Name: DevSecOps PROD and TEST Env
+    dev: 
+      Name: DevSecOps DEV Env
+
+Resources:
+
+  #Role that allows our DEPLOYMENT account to access this Repo
+  CPCodeCommitRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 
+        !Sub "cp-cc-role-${ProjectResourcePrefix}-${EnvironmentType}"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Ref AWSDeploymentAccountNumber
+            Action:
+              - sts:AssumeRole
+      Path: /
+        # ManagedPolicyArns:
+        #   - 'arn:aws:iam::aws:policy/AWSCodeCommitPowerUser'
+  CPCrossAccountRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CodePipelineCrossAccountRolePolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: CodeCommitAccess
+            Effect: Allow
+            Action:
+              - codecommit:BatchGet*
+              - codecommit:Create*
+              - codecommit:DeleteBranch
+              - codecommit:Get*
+              - codecommit:List*
+              - codecommit:Describe*
+              - codecommit:Put*
+              - codecommit:Post*
+              - codecommit:Merge*
+              - codecommit:Test*
+              - codecommit:Update*
+              - codecommit:GitPull
+              - codecommit:GitPush
+              - codecommit:UploadArchive
+            Resource:
+              - Fn::ImportValue:
+                  !Sub "${ProjectResourcePrefix}-repo-arn"
+          - Sid: CodeCommitListAccess
+            Effect: Allow
+            Action:
+              - codecommit:ListRepositories
+            Resource: "*"
+          - Sid: S3Access
+            Effect: Allow
+            Action:
+              - s3:GetObject*
+              - s3:PutObject
+              - s3:PutObjectAcl
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*"
+          -
+            Effect: Allow
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: !Ref KMSKeyArn # Allow access to the KMS key in our deploy account
+      Roles:
+        -
+          !Ref CPCodeCommitRole

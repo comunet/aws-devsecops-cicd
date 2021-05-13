@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup Stack (4) Creates roles to be assumed by CodePipeline services for cross account deployment
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - main
+      - dev
+    Description: Enter destination environment type 
+
+  AWSDeploymentAccountNumber:
+    Description: AWS Account Number for account running CodePipeline DEPLOYMENT Account
+    Type: String
+    Default: '011111122222'
+
+  KMSKeyArn:
+    Description: ARN of the unique Project KMS key created in the DEPLOYMENT Account
+    Type: String
+    Default: 'arn:aws:kms:us-east-1:011111122222:key/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+
+Resources:
+  #Role that allows assumes the passrole and decypts build artifacts
+  CPCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 
+        !Sub "cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Ref AWSDeploymentAccountNumber
+            Action:
+              - sts:AssumeRole
+      Path: /
+  CPCrossAccountRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CodePipelineCrossAccountRolePolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - cloudformation:*
+              - s3:*
+              - iam:PassRole
+            Resource: "*"
+          -
+            Effect: Allow
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: !Ref KMSKeyArn # Allow access to the KMS key in our deploy account
+      Roles:
+        -
+          !Ref CPCrossAccountRole
+
+  #Role that will run the Cloud Formation stack (from remote deployment). Needs unique permissions as fits project
+  CodePipelineCloudFormationDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 
+        !Sub "cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+  CFDeployerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CFDeployerPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:CreatePolicy
+              - iam:GetRole
+              - iam:DeleteRole
+              - iam:PutRolePolicy
+              - iam:PassRole
+              - iam:DeleteRolePolicy
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy # Adjust all this here as required, whatever your stack needs
+              - lambda:*
+              - events:*
+              - s3:*
+              - apigateway:*
+              - cloudformation:*
+              - kms:*
+            Resource: "*"
+          -
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetBucketPolicy
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*"
+              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+
+      Roles:
+        -
+          !Ref CodePipelineCloudFormationDeployRole

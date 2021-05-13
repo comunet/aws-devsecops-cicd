@@ -1,0 +1,704 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: "CICD Stack (1) CodePipeline Cross Account Deployment Stack for Stackset Deployment across AWS Organizations"
+
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - main
+    Description: Enter destination environment type 
+
+  RepoAccountNumber:
+    Description: "The AWS Account Number of the account which hosts the CodeCommit Source Control"
+    Type: String
+    Default: '583236045321'
+
+  RepoName:
+    Description: "Name of the GIT Repository to clone"
+    Type: String
+    Default: 'PROJECT-RESOURCE-PREFIX'
+  
+  BucketFolderPrefix:
+    Description: "The S3 bucket prefix to use for codepipeline build artifacts - bucket must already exist"
+    Type: String
+    Default: 'codebuild'
+
+  BranchName:
+    Description: "The git branch to operate from (i.e. dev, prod, uat, main)"
+    Type: String
+
+  AWSManagementAccountNumber:
+    Description: "The AWS Account Number of the account to perform the deployment into"
+    Type: String
+    Default: '33333322222'
+    
+  CodeBuildImage:
+    Type: String
+    Description: The docker repo path to build image
+    Default: aws/codebuild/standard:5.0
+
+  EmailFailedBuildNotifications:
+    Type: String
+    Description: The email address to send notifications regarding failed CodePipeline builds
+    Default: 'pipeline-failed@mydomain.com'
+  
+  EmailApprovalNotifications:
+    Type: String
+    Description: The email address to send notifications regarding failed CodePipeline builds
+    Default: 'deployment-approvals@mydomain.com'
+
+  GroupChatIntegration:
+    Type: String
+    Description: Determines if CI/CD will integrate with a Group Chat service (Slack or MS Teams)
+    Default: 'none'
+    AllowedValues:
+          - 'none'
+          - 'slack'
+          - 'msteams'
+
+Conditions:
+  IsSlackIntegrationEnabled: !Equals 
+    - !Ref GroupChatIntegration
+    - slack
+  IsMSTeamsIntegrationEnabled: !Equals 
+    - !Ref GroupChatIntegration
+    - msteams
+
+Resources:
+
+  LambdaExecutionRoleCore:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+      Path: "/"
+      Policies:
+        - PolicyName: Logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: "*"
+        - PolicyName: SNS
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:*
+                Resource: "*"
+        - PolicyName: Secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: "*"
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            Service: [codebuild.amazonaws.com]
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - '*'
+                Effect: Allow
+                Resource: '*'
+
+  CodePipeLineRole:
+    Type: "AWS::IAM::Role"
+    DependsOn: CodeBuildRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "codepipeline.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+      -
+        PolicyName: "code-pipeline-access"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action:
+                - "*"
+              Resource: "*"
+      -
+        PolicyName: "assume-role-policy-target-account"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action:
+                - "sts:AssumeRole"
+              Resource: 
+                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+      -
+        PolicyName: "assume-role-policy-repo-account"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action:
+                - "sts:AssumeRole"
+              Resource: 
+                !Sub "arn:aws:iam::${RepoAccountNumber}:role/cp-cc-role-${ProjectResourcePrefix}-${EnvironmentType}"
+
+  CodePipelineApprovalSNSTopic:
+    Type: AWS::SNS::Topic
+    DependsOn: CodePipeLineRole
+    Properties:
+      TopicName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-pipeline-approval-topic"
+      DisplayName: !Sub "${ProjectResourcePrefix}-${EnvironmentType} Approval Request"
+  
+  CodePipelineFailureSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-pipeline-failure-topic"
+      DisplayName: !Sub "${ProjectResourcePrefix}-${EnvironmentType} Execution Failed"
+  
+  CodePipelineSuccessSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-pipeline-success-topic"
+      DisplayName: !Sub "${ProjectResourcePrefix}-${EnvironmentType} Execution Succeeded"
+
+  CodePipelineApprovalSNSSubscriptionEmail:
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineApprovalSNSTopic
+    Properties:
+      Protocol: email
+      Endpoint: !Ref EmailApprovalNotifications
+      TopicArn: !Ref CodePipelineApprovalSNSTopic
+
+  # CodePipelineFailureSNSSubscriptionEmail:
+  #   Type: AWS::SNS::Subscription
+  #   DependsOn: CodePipelineFailureSNSTopic
+  #   Properties:
+  #     Protocol: email
+  #     Endpoint: !Ref EmailFailedBuildNotifications
+  #     TopicArn: !Ref CodePipelineFailureSNSTopic
+
+  CodePipelineApprovalSNSTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    DependsOn: CodePipelineApprovalSNSTopic
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sns:Publish'
+            Resource: !Ref CodePipelineApprovalSNSTopic
+      Topics:
+        - !Ref CodePipelineApprovalSNSTopic
+
+  CodePipelineFailureSNSTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    DependsOn: CodePipelineFailureSNSTopic
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sns:Publish'
+            Resource: !Ref CodePipelineFailureSNSTopic
+      Topics:
+        - !Ref CodePipelineFailureSNSTopic
+  
+  CodePipelineSuccessSNSTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    DependsOn: CodePipelineSuccessSNSTopic
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sns:Publish'
+            Resource: !Ref CodePipelineSuccessSNSTopic
+      Topics:
+        - !Ref CodePipelineSuccessSNSTopic
+
+  CloudFormationCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    DependsOn: CodePipelineFailureSNSTopicPolicy
+    Properties:
+      Name: !Sub '${AWS::StackName}-CloudFormationBuild'
+      ServiceRole: !Ref CodeBuildRole
+      EncryptionKey:
+        Fn::ImportValue:
+          !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: ./cf/cicd/buildspec.yaml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !Ref CodeBuildImage
+        EnvironmentVariables:
+          - Name: CODEPIPELINE_BUCKET
+            Value:
+              !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+          - Name: BUCKETFOLDER_PREFIX
+            Value: 
+              Ref: BucketFolderPrefix
+          - Name: KMS_KEY_ARN
+            Value:
+              Fn::ImportValue:
+                !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+      TimeoutInMinutes: 15
+
+  AppPipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    DependsOn: CloudFormationCodeBuildProject
+    Properties:
+      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-codepipeline"
+      RoleArn: !GetAtt CodePipeLineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              OutputArtifacts:
+                -
+                  Name: SourceCode
+              RoleArn: !Sub "arn:aws:iam::${RepoAccountNumber}:role/cp-cc-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              Namespace: "SourceVariables"
+              Configuration:
+                PollForSourceChanges: true
+                BranchName: !Ref BranchName
+                RepositoryName: !Ref RepoName
+              RunOrder: 1
+        -
+          Name: Build-CloudFormation-Resources
+          Actions:
+            -
+              Name: CallCodeBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              InputArtifacts:
+                -
+                  Name: SourceCode
+              OutputArtifacts:
+                -
+                  Name: DeployableArtifact
+              Configuration:
+                ProjectName: !GetAtt CloudFormationCodeBuildProject.Arn
+              RunOrder: 1
+        -
+          Name: Test-Infrastructure-Deploy
+          Actions:
+            -
+              Name: CreateChangeSetTestAccounts
+              RoleArn: 
+                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              InputArtifacts:
+                -
+                  Name: DeployableArtifact
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CHANGE_SET_REPLACE
+                Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+                ChangeSetName: !Sub '${ProjectResourcePrefix}-test-changeset'
+                RoleArn: 
+                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                StackName: !Sub '${ProjectResourcePrefix}-test'
+                TemplateConfiguration: !Sub 'DeployableArtifact::cf/project/parameters/test.json'
+                TemplatePath: !Sub 'DeployableArtifact::MasterStack_output.yaml'
+              RunOrder: 1
+            -
+              Name: ExecuteChangeSetTestAccounts
+              RoleArn: 
+                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CHANGE_SET_EXECUTE
+                ChangeSetName: !Sub '${ProjectResourcePrefix}-test-changeset'
+                StackName: !Sub '${ProjectResourcePrefix}-test'
+                RoleArn: 
+                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              RunOrder: 2
+        - 
+          Name: Manual-QA-Approval
+          Actions:
+            -
+              Name: "ManualQAEmail"
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Version: 1
+                Provider: Manual
+              Configuration:
+                NotificationArn: !Ref CodePipelineApprovalSNSTopic
+                CustomData:
+                  !Sub |
+                    { 
+                      "title": "Manual approval required",
+                      "message": "Click the link to approval or reject this change to *${ProjectFriendlyName}*. This solution has been deployed to your designated TEST Account(s) for review prior to PROD deployment.",
+                      "git_commit_msg": "#{SourceVariables.CommitMessage}" 
+                    }
+              RunOrder: 1
+        -
+          Name: Production-Infrastructure-Deploy
+          Actions:
+            -
+              Name: CreateChangeSetProdAccounts
+              RoleArn: 
+                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              InputArtifacts:
+                -
+                  Name: DeployableArtifact
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CHANGE_SET_REPLACE
+                Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+                ChangeSetName: !Sub '${ProjectResourcePrefix}-prod-changeset'
+                RoleArn: 
+                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                StackName: !Sub '${ProjectResourcePrefix}-prod'
+                TemplateConfiguration: !Sub 'DeployableArtifact::cf/project/parameters/prod.json'
+                TemplatePath: !Sub 'DeployableArtifact::MasterStack_output.yaml'
+              RunOrder: 1
+            -
+              Name: ExecuteChangeSetProdAccounts
+              RoleArn: 
+                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CHANGE_SET_EXECUTE
+                ChangeSetName: !Sub '${ProjectResourcePrefix}-prod-changeset'
+                StackName: !Sub '${ProjectResourcePrefix}-prod'
+                RoleArn: 
+                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              RunOrder: 2
+
+      ArtifactStore:
+        Type: S3
+        Location:
+            !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+        EncryptionKey:
+          Id:
+            Fn::ImportValue:
+              !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+          Type: KMS
+
+  CloudWatchCodePipelineFailureRule:
+    Type: AWS::Events::Rule
+    DependsOn: AppPipeline
+    Properties:
+      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-frule"
+      EventPattern:
+        source: 
+          - "aws.codepipeline"
+        detail-type: 
+          - "CodePipeline Stage Execution State Change"
+        detail: 
+          state: 
+            - "FAILED"
+          pipeline:
+            - !Ref AppPipeline
+      Targets:
+        - 
+          Arn:
+            Ref: CodePipelineFailureSNSTopic
+          Id: CodePipelineFailureSNSTopic
+
+  CloudWatchCodePipelineStartedRule:
+    Type: AWS::Events::Rule
+    DependsOn: AppPipeline
+    Properties:
+      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-startedrule"
+      EventPattern:
+        source: 
+          - "aws.codepipeline"
+        detail-type: 
+          - "CodePipeline Stage Execution State Change"
+        detail: 
+          state: 
+            - "STARTED"
+          pipeline:
+            - !Ref AppPipeline
+          stage:
+            - 'Source'
+      Targets:
+        - 
+          Arn:
+            Ref: CodePipelineSuccessSNSTopic
+          Id: CodePipelineSuccessSNSTopic
+
+  CloudWatchCodePipelineTestDeployStageSuccessRule:
+    Type: AWS::Events::Rule
+    DependsOn: AppPipeline
+    Properties:
+      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-test-ssrule"
+      EventPattern:
+        source: 
+          - "aws.codepipeline"
+        detail-type: 
+          - "CodePipeline Stage Execution State Change"
+        detail: 
+          state: 
+            - "SUCCEEDED"
+          pipeline:
+            - !Ref AppPipeline
+          stage:
+            - 'Test-Infrastructure-Deploy'
+      Targets:
+        - 
+          Arn:
+            Ref: CodePipelineSuccessSNSTopic
+          Id: CodePipelineSuccessSNSTopic
+
+  CloudWatchCodePipelineApprovalStageSuccessRule:
+    Type: AWS::Events::Rule
+    DependsOn: AppPipeline
+    Properties:
+      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-approv-ssrule"
+      EventPattern:
+        source: 
+          - "aws.codepipeline"
+        detail-type: 
+          - "CodePipeline Stage Execution State Change"
+        detail: 
+          state: 
+            - "SUCCEEDED"
+          pipeline:
+            - !Ref AppPipeline
+          stage:
+            - 'Manual-QA-Approval'
+      Targets:
+        - 
+          Arn:
+            Ref: CodePipelineSuccessSNSTopic
+          Id: CodePipelineSuccessSNSTopic
+
+  CloudWatchCodePipelineProdDeployStageSuccessRule:
+    Type: AWS::Events::Rule
+    DependsOn: AppPipeline
+    Properties:
+      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-prod-ssrule"
+      EventPattern:
+        source: 
+          - "aws.codepipeline"
+        detail-type: 
+          - "CodePipeline Stage Execution State Change"
+        detail: 
+          state: 
+            - "SUCCEEDED"
+          pipeline:
+            - !Ref AppPipeline
+          stage:
+            - 'Production-Infrastructure-Deploy'
+      Targets:
+        - 
+          Arn:
+            Ref: CodePipelineSuccessSNSTopic
+          Id: CodePipelineSuccessSNSTopic
+
+  SNStoMSTeamsFunction:
+    Condition: IsMSTeamsIntegrationEnabled
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: ../../lambda/nodejs/src/sns_to_msteams/.build/sns_to_msteams.zip
+      Description: CodePipeline SNS notifications to MS Teams
+      MemorySize: 128
+      Timeout: 30
+      Role: !GetAtt [LambdaExecutionRoleCore, Arn]
+      Tracing: Active
+      Environment:
+        Variables:
+          PROJECT_NAME: !Sub "${ProjectFriendlyName}"
+          PROJECT_PREFIX: !Ref ProjectResourcePrefix
+          MASTER_DEPLOYMENT_ACCOUNT: !Ref AWSManagementAccountNumber
+      Tags:
+        Project: !Sub "${ProjectFriendlyName}"
+        Purpose: "MS Teams notifications for CodePipeline"
+
+  SNStoMSTeamsFunctionInvokePermission:
+    Condition: IsMSTeamsIntegrationEnabled
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref SNStoMSTeamsFunction
+      Principal: sns.amazonaws.com
+
+  SNStoSlackFunction:
+    Type: AWS::Serverless::Function
+    Condition: IsSlackIntegrationEnabled
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: ../../lambda/nodejs/src/sns_to_slack/.build/sns_to_slack.zip
+      Description: CodePipeline SNS notifications to Slack
+      MemorySize: 128
+      Timeout: 30
+      Role: !GetAtt [LambdaExecutionRoleCore, Arn]
+      Tracing: Active
+      Environment:
+        Variables:
+          PROJECT_NAME: !Sub "${ProjectFriendlyName}"
+          PROJECT_PREFIX: !Ref ProjectResourcePrefix
+          MASTER_DEPLOYMENT_ACCOUNT: !Ref AWSManagementAccountNumber
+      Tags:
+        Project: !Sub "${ProjectFriendlyName}"
+        Purpose: "Slack notifications for CodePipeline"
+
+  SNStoSlackFunctionInvokePermission:
+    Condition: IsSlackIntegrationEnabled
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref SNStoSlackFunction
+      Principal: sns.amazonaws.com
+
+  CodePipelineApprovalSNSSubscriptionMSTeams:
+    Condition: IsMSTeamsIntegrationEnabled
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineApprovalSNSTopic
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt SNStoMSTeamsFunction.Arn
+      TopicArn: !Ref CodePipelineApprovalSNSTopic
+
+  CodePipelineApprovalSNSSubscriptionSlack:
+    Condition: IsSlackIntegrationEnabled
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineApprovalSNSTopic
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt SNStoSlackFunction.Arn
+      TopicArn: !Ref CodePipelineApprovalSNSTopic
+
+  CodePipelineSuccessSNSSubscriptionMSTeams:
+    Condition: IsMSTeamsIntegrationEnabled
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineSuccessSNSTopic
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt SNStoMSTeamsFunction.Arn
+      TopicArn: !Ref CodePipelineSuccessSNSTopic
+
+  CodePipelineSuccessSNSSubscriptionSlack:
+    Condition: IsSlackIntegrationEnabled
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineSuccessSNSTopic
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt SNStoSlackFunction.Arn
+      TopicArn: !Ref CodePipelineSuccessSNSTopic
+  
+  CodePipelineFailureSNSSubscriptionMSTeams:
+    Condition: IsMSTeamsIntegrationEnabled
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineSuccessSNSTopic
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt SNStoMSTeamsFunction.Arn
+      TopicArn: !Ref CodePipelineFailureSNSTopic
+
+  CodePipelineFailureSNSSubscriptionSlack:
+    Condition: IsSlackIntegrationEnabled
+    Type: AWS::SNS::Subscription
+    DependsOn: CodePipelineFailureSNSTopic
+    Properties:
+      Protocol: lambda
+      Endpoint: !GetAtt SNStoSlackFunction.Arn
+      TopicArn: !Ref CodePipelineFailureSNSTopic
+
+Outputs:
+  ProjectResourcePrefix:
+    Description: "The unique prefix given to project/application"
+    Value: !Ref ProjectResourcePrefix
+  
+  ProjectFriendlyName:
+    Description: "The user-friendly name given to project/application"
+    Value: !Ref ProjectFriendlyName
+  
+  EnvironmentType:
+    Description: "The destination environment type of this pipeline for the project/application"
+    Value: !Ref EnvironmentType
+
+  CodePipelineJob:
+    Description: "Name of the code pipeline job created"
+    Value: !Ref AppPipeline
+
+  CodePipelineKMSKeyArn:
+    Description: "The KMS Arn used for Cross-account deployment of this pipeline"
+    Value:
+      Fn::ImportValue:
+        !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
