@@ -13,7 +13,7 @@ This project is a framework for delivering governed DevSecOps CloudFormation Sta
 			- [3.2.2 Advanced Install with Slack Integration](#322-advanced-install-with-slack-integration)
 			- [3.2.3 Advanced Install with MS Teams Integration](#323-advanced-install-with-ms-teams-integration)
 		- [3.3 MANUAL DEPLOYMENT](#33-manual-deployment)
-	- [3.4 Setup Source Control](#34-setup-source-control)
+		- [3.4 Setup Source Control](#34-setup-source-control)
 	- [4. Using the AWS DevSecOps CI/CD Framework](#4-using-the-aws-devsecops-cicd-framework)
 		- [4.1 How it works](#41-how-it-works)
 		- [4.2 Creating your own DevSevOps Stacks and StackSets](#42-creating-your-own-devsevops-stacks-and-stacksets)
@@ -270,14 +270,14 @@ sam package --template-file ./cf/cicd/stackset_pipeline.yaml --output-template-f
 sam deploy --template-file "./.build/_stackset_pipeline.yaml" --stack-name "${projectResourcePrefix}-pipeline-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType RepoName=$codeCommitRepoName BranchName=$codeCommitBranchName AWSManagementAccountNumber=$AWSManagementAccountNumber RepoAccountNumber=$AWSDeploymentAccountNumber ProjectResourcePrefix=$projectResourcePrefix EmailFailedBuildNotifications=$emailFailedBuildNotifications EmailApprovalNotifications=$emailApprovalNotifications
 ```
 
-## 3.4 Setup Source Control
-### 3.4.1 Create IAM User to access new CodeCommit Repo (if not already setup) <!-- omit in toc -->
+### 3.4 Setup Source Control
+#### 3.4.1 Create IAM User to access new CodeCommit Repo (if not already setup) <!-- omit in toc -->
 
 1. Create an IAM User in the CODE account, put user in a new group 'CodeCommitUser', give the user the Managed Policy 'AWSCodeCommitPowerUser'.
 
 2. Navigate to the IAM Users you just created, go to the Security credentials tab, scroll to bottom of page. In 'HTTPS Git credentials for AWS CodeCommit' section, click 'Generate credentials' and the 'Download credentials'
 
-### 3.4.2 Connect to new GIT repo, copy code to LOCAL repo, Make initial COMMIT & PUSH <!-- omit in toc -->
+#### 3.4.2 Connect to new GIT repo, copy code to LOCAL repo, Make initial COMMIT & PUSH <!-- omit in toc -->
 Before you can run the Pipeline, you will the code-base in the repo you just setup.
 1. Create a HTTPS GIT connection to your repo
 2. Copy contents of code-base to local folder
