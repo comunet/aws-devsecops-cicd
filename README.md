@@ -39,8 +39,8 @@ If you are using AWS Control Tower and AWS SSO, its likely you will overright co
 
 This project assumes the following AWS profiles setup on your machine:
 
-[org-deployment] - the AWS Account to host the Code Repo (CodeCommit) and CICD components (CodePipeline, CodeBuild)
-[org-management] - the parent AWS Account that hosts AWS Organisations/AWS Control Tower 
+- [org-deployment] - the AWS Account to host the Code Repo (CodeCommit) and CICD components (CodePipeline, CodeBuild)
+- [org-management] - the parent AWS Account that hosts AWS Organisations/AWS Control Tower 
 
 ### 2.5 Setup your AWS Organisations management account for enabling StackSets 
 1. In 'AWS Organizations' - Enable Service CloudFormation StackSets.
@@ -82,14 +82,11 @@ Once your have replaced all variables above, then either run the Automated Deplo
 
 ### 3.2 AUTOMATED DEPLOYMENT: 
 #### 3.2.1 Simple Install (no Slack or MS Teams Integration)
-To deploy the framework automatically, after performing Replace in Files above, run the following script:
+To deploy the framework automatically, after performing Replace in Files (3.1) above, run the following script:
 ```
 ./cf/setup/automated_deployment.sh
 ```
-2. Advanced Install
-The automated install can also be run with additional arguments such as installing the Slack or MS Teams integration.
-
-#### 3.2.2 Install with Slack Integration
+#### 3.2.2 Advanced Install with Slack Integration
 1. Create a Slack App
    1. Navigate to https://api.slack.com/apps?new_app=1
    2. Create New App >> From Scratch. 
@@ -98,11 +95,11 @@ The automated install can also be run with additional arguments such as installi
    5. Click 'Add New Webhook to Workspace' >> select your channel and 'Allow'
    6. Copy the Webhook Url. Strip first part of url, keep from '/services/..'
 
-2. Run the Deployment Script
+2. To deploy the framework automatically, after performing Replace in Files (3.1) above, run the following script
 ```
 ./cf/setup/automated_deployment.sh --i "slack" -c "SLACKCHANNELNAME" -d "SLACKWEBHOOKPATH"
 ```
-#### 3.2.3 Install with MS Teams Integration
+#### 3.2.3 Advanced Install with MS Teams Integration
 1. Create an Incoming Webhook Connector in your Channel
 	1. Navigate to the channel you want Pipeline notifications to appear
 	2. Select 'Connectors' from the channel options menu
@@ -110,7 +107,7 @@ The automated install can also be run with additional arguments such as installi
 	4. Input a name, image and 'Create'
 	5. Copy the URL, split the url by the hostname and path for next step.
 
-2. Run the Deployment Script
+2. To deploy the framework automatically, after performing Replace in Files (3.1) above, run the following script
 ```
 ./cf/setup/automated_deployment.sh --i "msteams" -e "MSTEAMSHOSTNAME" -f "MSTEAMSWEBHOOKPATH"
 ```
@@ -258,7 +255,7 @@ Before you can run the Pipeline, you will the code-base in the repo you just set
 4. GIT PUSH to sent to remote repo on designated branch (codeCommitBranchName)
 
 
-## 4. Using the DevSecOps CI/CD Framework
+## 4. Using the AWS DevSecOps CI/CD Framework
 ### 4.1 How it works
 The purpose of this project is to take away some of the hassles of setting up CI/CD, and easily deploying stacks across AWS Organizations with some sensible approval workflow.
 
@@ -311,8 +308,9 @@ Things I would like to extend on this framework:
 
 ## 6. Contact
 
-**Damien Coyle** Princial Technologist, AWS APN Ambassador, Comunet Pty Ltd
-
+**Damien Coyle**  
+Princial Technologist  
+AWS APN Ambassador  
 [Comunet Pty Ltd](https://www.comunet.com.au)
 
 Connect on [linkedin](https://www.linkedin.com/in/damiencoyle/)
