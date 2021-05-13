@@ -2,6 +2,24 @@
 
 This project is a framework for delivering governed DevSecOps CloudFormation Stacks across AWS Accounts in an AWS Organisations/AWS Control Tower account setup.
 
+- [AWS DevSecOps CI/CD Framework for AWS Organisations](#aws-devsecops-cicd-framework-for-aws-organisations)
+	- [1. About](#1-about)
+	- [2. Prerequisite Setup:](#2-prerequisite-setup)
+	- [3. Initial Setup (Once-off) - Setting up Orchestration](#3-initial-setup-once-off---setting-up-orchestration)
+		- [3.1. Setup your configuration variables](#31-setup-your-configuration-variables)
+			- [Optional Settings for Group Chat Integration (Slack or MS Teams)](#optional-settings-for-group-chat-integration-slack-or-ms-teams)
+		- [3.2 AUTOMATED DEPLOYMENT](#32-automated-deployment)
+			- [3.2.1 Simple Install (no Slack or MS Teams Integration)](#321-simple-install-no-slack-or-ms-teams-integration)
+			- [3.2.2 Advanced Install with Slack Integration](#322-advanced-install-with-slack-integration)
+			- [3.2.3 Advanced Install with MS Teams Integration](#323-advanced-install-with-ms-teams-integration)
+		- [3.3 MANUAL DEPLOYMENT](#33-manual-deployment)
+	- [3.4 Setup Source Control](#34-setup-source-control)
+	- [4. Using the AWS DevSecOps CI/CD Framework](#4-using-the-aws-devsecops-cicd-framework)
+		- [4.1 How it works](#41-how-it-works)
+		- [4.2 Creating your own DevSevOps Stacks and StackSets](#42-creating-your-own-devsevops-stacks-and-stacksets)
+	- [5. Todos](#5-todos)
+	- [6. Contact](#6-contact)
+
 ## 1. About
 This solution is an easy way to make DevSecOps changes to accounts with governed workflow to allow testing environments and approval steps before deployment to 'production' accounts. By creating your own StackSets you granularly deploy to given environments unique resources or controls such as VPCs, VPC Endpoints, Roles, Policies, etc.
 
@@ -17,16 +35,16 @@ More information on how to use the framework is available in section 4.
 
 
 ## 2. Prerequisite Setup:
-### 2.2 AWS Deployment will require the following CLI on your PC
+### 2.2 AWS Deployment will require the following CLI on your PC <!-- omit in toc -->
 1. NodeJS [https://nodejs.org/en/]
 2. AWS CLI [https://aws.amazon.com/cli/]
 3. AWS SAM CLI [https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html]
-### 2.3 Setup temp build folder on your local env
+### 2.3 Setup temp build folder on your local env <!-- omit in toc -->
 Create a local build folder (using Bash Terminal) where build outputs will be produced
 ```
 mkdir .build
 ```
-### 2.4 Setup your AWS Profiles on your local env
+### 2.4 Setup your AWS Profiles on your local env <!-- omit in toc -->
 Setup your AWS profiles. Start by running:
 ```
 aws configure
@@ -42,7 +60,7 @@ This project assumes the following AWS profiles setup on your machine:
 - [org-deployment] - the AWS Account to host the Code Repo (CodeCommit) and CICD components (CodePipeline, CodeBuild)
 - [org-management] - the parent AWS Account that hosts AWS Organisations/AWS Control Tower 
 
-### 2.5 Setup your AWS Organisations management account for enabling StackSets 
+### 2.5 Setup your AWS Organisations management account for enabling StackSets <!-- omit in toc -->
 1. In 'AWS Organizations' - Enable Service CloudFormation StackSets.
 In your management aws account you will need to enable the Service 'CloudFormation StackSets' (if you havent already) in order to deploy StackSets across your organization.
    - 1. In the AWS Console, navigate to AWS Organizations >> Services >> CloudFormation StackSets, click 'Enable trusted access'
@@ -80,8 +98,8 @@ Go through each item in this table and find and replace all 'Placeholder to find
 
 Once your have replaced all variables above, then either run the Automated Deployment Script below (#3.2) [recommended], or perform manual deployment (#3.3).
 
-### 3.2 AUTOMATED DEPLOYMENT: 
-#### 3.2.1 Simple Install (no Slack or MS Teams Integration)
+### 3.2 AUTOMATED DEPLOYMENT  
+#### 3.2.1 Simple Install (no Slack or MS Teams Integration) 
 To deploy the framework automatically, after performing Replace in Files (3.1) above, run the following script:
 ```
 ./cf/setup/automated_deployment.sh
@@ -123,10 +141,10 @@ You can optionally install this solution to post CodePipeline notifications to a
 ```
 ./cf/setup/automated_deployment.sh --i "msteams" -e "MSTEAMSHOSTNAME" -f "MSTEAMSWEBHOOKPATH"
 ```
-## 3.3 MANUAL DEPLOYMENT: 
+### 3.3 MANUAL DEPLOYMENT
 If you prefer the Manual Deployment, steps are outlined below.
 
-### 3.3.1 Set deployment variables
+#### 3.3.1 Set deployment variables <!-- omit in toc -->
 Open a bash terminal and run lines below to setup some bash variables which will be reused across script installations:
 ```
 AWSDeploymentAccountNumber="AWSACCNUMBER-DEPLOYMENTACCOUNT"
@@ -150,7 +168,7 @@ printf "Done"
 
 ```
 
-### 3.3.2 Upload Slack/MS Teams Settings to AWS Secrets in DEPLOYMENT account [OPTIONAL]
+#### 3.3.2 Upload Slack/MS Teams Settings to AWS Secrets in DEPLOYMENT account [OPTIONAL] <!-- omit in toc -->
 1. Create local variables to be used as Secret Values.
    * **[For Slack Integration]**
 		Assuming you have performed (step 3.2.2.1 above) and replace script placeholders (3.1)
@@ -170,14 +188,14 @@ Assuming you have performed (step 3.2.2.1 above) and replace script placeholders
 aws secretsmanager create-secret --name $secretName --secret-string $secretValue --profile $profileDeploymentAccount --region $awsregion
 ```
 
-#### Updating Slack/Teams AWS Secrets
+#### Updating Slack/Teams AWS Secrets <!-- omit in toc -->
 
  > Note: If you need to update your secret values you can use the following script. 
 ```
 aws secretsmanager update-secret --secret-id $secretName --secret-string $secretValue --profile $profileDeploymentAccount --region $awsregion
 ```
 
-### 3.3.3 Setup CodeCommit Repo in DEPLOYMENT account
+#### 3.3.3 Setup CodeCommit Repo in DEPLOYMENT account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 aws cloudformation package --template-file ./cf/setup/01_create_codecommit_repo.yaml --output-template-file ./.build/_01_create_codecommit_repo.yaml --s3-bucket NOTUSED --profile $profileDeploymentAccount
@@ -188,7 +206,7 @@ aws cloudformation package --template-file ./cf/setup/01_create_codecommit_repo.
 aws cloudformation deploy --template-file ./.build/_01_create_codecommit_repo.yaml --stack-name "${projectResourcePrefix}-setup-codecommit-repo" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
 ```
 
-### 3.3.4 Deploy the S3 Bucket for Build Artifacts with Policy + KMS Key to DEPLOYMENT Account
+#### 3.3.4 Deploy the S3 Bucket for Build Artifacts with Policy + KMS Key to DEPLOYMENT Account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 aws cloudformation package --template-file ./cf/setup/02_deployment_artifacts_bucket.yaml --output-template-file "./.build/_02_deployment_artifacts_bucket.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
@@ -199,7 +217,7 @@ aws cloudformation package --template-file ./cf/setup/02_deployment_artifacts_bu
 aws cloudformation deploy --template-file "./.build/_02_deployment_artifacts_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-artif-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType ProjectResourcePrefix=$projectResourcePrefix AWSManagementAccountNumber=$AWSManagementAccountNumber
 ```
 
-### 3.3.5 Get Copy of KMS Key Arn just created
+#### 3.3.5 Get Copy of KMS Key Arn just created <!-- omit in toc -->
 This command will store a local variable of the KMS Key Arn created in previous step
 1. Query CloudFormation Stack for KMS Key Arn
 ```
@@ -208,7 +226,7 @@ CodePipelineKMSKeyArn=$(eval $get_cmk_command)
 printf "Got CMK ARN: $CodePipelineKMSKeyArn"
 ```
 
-### 3.3.6 Setup IAM Roles for CodePipeline to access DEPLOYMENT Account
+#### 3.3.6 Setup IAM Roles for CodePipeline to access DEPLOYMENT Account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 aws cloudformation package --template-file ./cf/setup/03_iam_role_codepipeline.yaml --output-template-file "./.build/_03_iam_role_codepipeline.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
@@ -219,7 +237,7 @@ aws cloudformation package --template-file ./cf/setup/03_iam_role_codepipeline.y
 aws cloudformation deploy --template-file "./.build/_03_iam_role_codepipeline.yaml" --stack-name "${projectResourcePrefix}-setup-cp-roles-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix RepoPrefix=$repoPrefix
 ```
 
-### 3.3.7 Deploy IAM Roles and KMS Trust with TARGET Account
+#### 3.3.7 Deploy IAM Roles and KMS Trust with TARGET Account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileManagementAccount
@@ -230,7 +248,7 @@ aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yam
 aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
 ```
 
-### 3.3.8 Compile Lambda Extension for Slack/MS Teams Add-on [OPTIONAL]
+#### 3.3.8 Compile Lambda Extension for Slack/MS Teams Add-on [OPTIONAL] <!-- omit in toc -->
 1. Install node-lambda (if not already done)
 ```
 npm install node-lambda -g
@@ -241,7 +259,7 @@ npm install node-lambda -g
 ./cf/cicd/build_lambdas.sh
 ```
 
-### 3.3.9 Setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account
+#### 3.3.9 Setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 sam package --template-file ./cf/cicd/stackset_pipeline.yaml --output-template-file "./.build/_stackset_pipeline.yaml" --s3-bucket $s3ArtifactsBucket --profile $profileDeploymentAccount --region $awsregion
@@ -253,13 +271,13 @@ sam deploy --template-file "./.build/_stackset_pipeline.yaml" --stack-name "${pr
 ```
 
 ## 3.4 Setup Source Control
-### 3.4.1 Create IAM User to access new CodeCommit Repo (if not already setup)
+### 3.4.1 Create IAM User to access new CodeCommit Repo (if not already setup) <!-- omit in toc -->
 
 1. Create an IAM User in the CODE account, put user in a new group 'CodeCommitUser', give the user the Managed Policy 'AWSCodeCommitPowerUser'.
 
 2. Navigate to the IAM Users you just created, go to the Security credentials tab, scroll to bottom of page. In 'HTTPS Git credentials for AWS CodeCommit' section, click 'Generate credentials' and the 'Download credentials'
 
-### 3.4.2 Connect to new GIT repo, copy code to LOCAL repo, Make initial COMMIT & PUSH
+### 3.4.2 Connect to new GIT repo, copy code to LOCAL repo, Make initial COMMIT & PUSH <!-- omit in toc -->
 Before you can run the Pipeline, you will the code-base in the repo you just setup.
 1. Create a HTTPS GIT connection to your repo
 2. Copy contents of code-base to local folder
