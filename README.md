@@ -25,7 +25,8 @@ This solution is an easy way to make DevSecOps changes to accounts with governed
 
 The solution deploys DevSecOps code as CloudFormation StackSets in the 'Management Account' which then deploy Stack Instances to specified TEST and PROD AWS Organisation OrgUnitIds (or specified accounts).
 
-The solution is documented in the following blog post: XXXX
+The solution is documented in the following blog post:
+https://www.linkedin.com/pulse/automating-your-devsecops-aws-damien-coyle
 
 **-- Reference Architecture --**
 
