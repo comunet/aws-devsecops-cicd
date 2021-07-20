@@ -85,7 +85,7 @@ Go through each item in this table and find and replace all 'Placeholder to find
 |      EMAIL-ADDR-FAILEDBUILD      |     valid email address     | pipeline-failed@mydomain.com.au |               Email address where to send Failed CICD Pipeline Builds               |
 | EMAIL-ADDR-APPROVALNOTIFICATIONS |     valid email address     | deployapprovals@mydomain.com.au |               Email address where to send Failed CICD Pipeline Builds               |
 |            AWS-REGION            |    valid AWS Region Code    |         ap-southeast-2          |      AWS Region for DEPLOYMENT resources (CodeCommit, CodePipeline, CodeBuild)      |
-
+|       GROUPCHATINTEGRATION       |    none, msteams, slack     |             msteams             |
 
 #### Optional Settings for Group Chat Integration (Slack or MS Teams)
 
@@ -95,7 +95,6 @@ Go through each item in this table and find and replace all 'Placeholder to find
 | MSTEAMSWEBHOOKPATH  |    string    | "/webhookb2/XXXX-XXX-XX-XXX-XXXX/IncomingWebhook/XXXXXX/XXX-XXX-XXX-XX-XXX" |  MS Teams Web Hook Path   |
 |  SLACKCHANNELNAME   |    string    |                               #myChannelName                                |    Slack Channel Name     |
 |  SLACKWEBHOOKPATH   |    string    |                         "/services/XXX/XXXXX/XXXXX"                         |    Slack Web Hook Path    |
-
 
 Once your have replaced all variables above, then either run the Automated Deployment Script below (#3.2) [recommended], or perform manual deployment (#3.3).
 
@@ -249,7 +248,17 @@ aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yam
 aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
 ```
 
-#### 3.3.8 Compile Lambda Extension for Slack/MS Teams Add-on [OPTIONAL] <!-- omit in toc -->
+# 3.3.8 Deploy StackSet Managed Self-service Roles to MANAGEMENT Account <!-- omit in toc -->
+1. Compile the CloudFormation script
+```
+aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileManagementAccount
+```
+2. Deploy the CloudFormation script
+```
+aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
+```
+
+#### 3.3.9 Compile Lambda Extension for Slack/MS Teams Add-on [OPTIONAL] <!-- omit in toc -->
 1. Install node-lambda (if not already done)
 ```
 npm install node-lambda -g
@@ -260,7 +269,7 @@ npm install node-lambda -g
 ./cf/cicd/build_lambdas.sh
 ```
 
-#### 3.3.9 Setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account <!-- omit in toc -->
+#### 3.3.10 Setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 sam package --template-file ./cf/cicd/stackset_pipeline.yaml --output-template-file "./.build/_stackset_pipeline.yaml" --s3-bucket $s3ArtifactsBucket --profile $profileDeploymentAccount --region $awsregion

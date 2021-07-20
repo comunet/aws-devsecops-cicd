@@ -104,17 +104,28 @@ Resources:
               - iam:CreatePolicy
               - iam:GetRole
               - iam:DeleteRole
-              - iam:PutRolePolicy
               - iam:PassRole
+              - iam:GetRolePolicy
+              - iam:PutRolePolicy
               - iam:DeleteRolePolicy
               - iam:AttachRolePolicy
               - iam:DetachRolePolicy # Adjust all this here as required, whatever your stack needs
+              - iam:GetGroup
+              - iam:CreateGroup
+              - iam:DeleteGroup
+              - iam:GetGroupPolicy
+              - iam:PutGroupPolicy
+              - iam:AttachGroupPolicy
+              - iam:DetachGroupPolicy
+              - iam:DeleteGroupPolicy
+              - ec2:*
               - lambda:*
               - events:*
               - s3:*
               - apigateway:*
               - cloudformation:*
               - kms:*
+              - servicecatalog:*
             Resource: "*"
           -
             Effect: Allow

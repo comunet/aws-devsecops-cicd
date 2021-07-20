@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup Stack (4) Creates roles to be assumed by CodePipeline services for cross account deployment
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: Comunet Training DevSecOps CICD
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: comunet-org-training-devsecops
+    Description: Enter a unique prefix for the project resources.
+
+Resources:
+
+  LambdaVPCStackSetInstanceExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: LambdaVPCStackSetInstanceExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+      Path: "/"
+      Policies:
+        - PolicyName: AssumeRole-AWSCloudFormationStackSetAdministrationRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - "arn:aws:iam::*:role/AWSCloudFormationStackSetAdministrationRole"
+        - PolicyName: Logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: "*"
+
+  # IAM Role for CloudFormation StackSet Administration in Master account
+  AWSCloudFormationStackSetAdministrationRole:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "Allow * in the ARN of the execution role to allow cross account access to user created child account in the AWS Organizations"
+          - id: W28
+            reason: "The role name is defined to identify AWS Landing Zone resources."
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSCloudFormationStackSetAdministrationRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action:
+              - sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !GetAtt [LambdaVPCStackSetInstanceExecutionRole, Arn]
+            Action:
+              - sts:AssumeRole          
+      Path: /
+      Policies:
+        - PolicyName: AssumeRole-AWSCloudFormationStackSetExecutionRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - "arn:aws:iam::*:role/AWSCloudFormationStackSetExecutionRole"
+        - PolicyName: EC2
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeAvailabilityZones
+                Resource: "*"
+
+Outputs:
+  AWSCloudFormationStackSetAdministrationRoleArn:
+    Description: Arn of the Management Account AWS AWSCloudFormationStackSetAdministrationRole
+    Value: !GetAtt [AWSCloudFormationStackSetAdministrationRole,Arn]
+    Export:
+      Name: !Sub 'AWSCloudFormationStackSetAdministrationRoleArn'
+
+  LambdaVPCStackSetInstanceExecutionRoleArn:
+    Description: Arn of the Management Account LambdaVPCInstanceExecutionRole
+    Value: !GetAtt [LambdaVPCStackSetInstanceExecutionRole,Arn]
+    Export:
+      Name: !Sub 'LambdaVPCStackSetInstanceExecutionRoleArn'

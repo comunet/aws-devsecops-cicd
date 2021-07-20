@@ -3,7 +3,7 @@ Description: Master stack which references all project CloudFormation outputs
 
 Parameters:
   #Application Generic Parameters >>
-  BuidGuid:
+  BuildGuid:
     Type: String
     Description: Unique Id used in build to force CloudFormation StackSet to update
   ProjectFriendlyName:
@@ -76,20 +76,63 @@ Parameters:
 Mappings: 
   EnvironmentFriendlyName: 
     prod: 
-      Name: Production Stack
+      Name: Production Release
     test: 
-      Name: Test Stack
+      Name: Test Release
 
 Resources:
+
+  # This stack creates trust roles in child accounts suitable for StackSet Deployments using 'SELF-MANAGED' permissions
+  IAMSelfManagedStackSetTrustRoles:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TimeoutInMinutes: '30'
+      TemplateURL:
+        !Sub "https://${ProjectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${BuildGuid}/IAMSelfManagedStackSetTrustRolesStackSet_output.yaml"
+      Parameters:
+        BuildGuid:
+          Ref: BuildGuid
+        EnvironmentType:
+          Ref: EnvironmentType
+        EnvironmentFriendlyName:
+          !FindInMap [EnvironmentFriendlyName, !Ref EnvironmentType, Name]
+        ProjectResourcePrefix:
+          Ref: ProjectResourcePrefix
+        ProjectFriendlyName:
+          Ref: ProjectFriendlyName
+        OrganizationalUnitIds:
+          Ref: DefaultDeploymentOrgUnitIds
+        DeploymentRegions:
+          Ref: DefaultDeploymentRegions
+        RetainStacksOnAccountRemoval:
+          Ref: DefaultRetainStacksOnAccountRemoval
+        ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn: 
+          Fn::ImportValue:
+            !Sub "AWSCloudFormationStackSetAdministrationRoleArn"
+        ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn:
+          Fn::ImportValue:
+              !Sub "LambdaVPCStackSetInstanceExecutionRoleArn"
+      Tags:
+        - Key: Name
+          Value: IAMSelfManagedStackSetTrustRoles
+        - Key: Project
+          Value: !Ref ProjectFriendlyName
+        - Key: Purpose
+          Value: Creates roles to allow Self-Managed StackSets to deployed to individual AWS Accounts (instead of OrgUnits)
+        - Key: Environment
+          Value: 
+            !FindInMap [EnvironmentFriendlyName, !Ref EnvironmentType, Name]
+
+  # This stack is for testing/example only
   SampleStackSetS3:
     Type: "AWS::CloudFormation::Stack"
     Properties:
       TimeoutInMinutes: '30'
       TemplateURL:
-        !Sub "https://${ProjectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${BuidGuid}/S3StackSet_output.yaml"
+        !Sub "https://${ProjectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${BuildGuid}/S3StackSet_output.yaml"
       Parameters:
-        BuidGuid:
-          Ref: BuidGuid
+        BuildGuid:
+          Ref: BuildGuid
         EnvironmentType:
           Ref: EnvironmentType
         EnvironmentFriendlyName:

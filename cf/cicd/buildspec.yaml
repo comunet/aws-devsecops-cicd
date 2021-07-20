@@ -48,7 +48,7 @@ phases:
           aws cloudformation package --template-file $cf_template --output-template-file $templateOutputName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
           aws s3 cp "$templateOutputName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateOutputName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
         done
-      # Replace placeholder buidguid pram
+      # Replace placeholder BuildGuid pram
       - sed -i "s/>>PLACEHOLDER_BUILD_GUID<</${buildGuid}/g" ./cf/project/parameters/prod.json
       - sed -i "s/>>PLACEHOLDER_BUILD_GUID<</${buildGuid}/g" ./cf/project/parameters/test.json
 artifacts:
