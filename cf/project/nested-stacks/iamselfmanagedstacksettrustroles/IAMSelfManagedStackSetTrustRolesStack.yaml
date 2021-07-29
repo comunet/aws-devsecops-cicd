@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates Child Account roles in Account to allow AWS Organisations Self-managed StackSet Deployment"
+
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Description: Enter an friendly project name for Tagging
+  ProjectResourcePrefix:
+    Type: String
+    Description: Enter a unique prefix for the project resources.
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - prod
+      - test
+    Description: Enter destination environment type
+  EnvironmentFriendlyName:
+    Type: String
+    Description: Friendly environment name of project
+  #Project Specific Parameters >>
+  ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn:
+    Type: String
+    Description: Arn of the Management Account AWS AWSCloudFormationStackSetAdministrationRole
+  ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn:
+    Type: String
+    Description: Arn of the Management Account LambdaVPCInstanceExecutionRole
+  #<< Project Specific Parameters
+
+Resources:
+  # IAM Role for CloudFormation StackSet Execution in a Chile Account account
+  AWSCloudFormationStackSetExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "The role name is defined to allow cross account access from the master account."
+          - id: W43
+            reason: "The admin permissions needed for StackSet service to deploy unknown customer defined resources."
+    Properties:
+      RoleName: AWSCloudFormationStackSetExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "${ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn}"
+                - !Sub "${ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn}"
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
