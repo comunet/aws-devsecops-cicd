@@ -1,6 +1,6 @@
 {
     "Parameters": {
-        "BuidGuid": ">>PLACEHOLDER_BUILD_GUID<<",
+        "BuildGuid": ">>PLACEHOLDER_BUILD_GUID<<",
         "ProjectFriendlyName": "PROJECT-FRIENDLY-NAME",
         "ProjectResourcePrefix": "PROJECT-RESOURCE-PREFIX",
         "EnvironmentType": "test",

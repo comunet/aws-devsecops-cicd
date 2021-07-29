@@ -3,7 +3,7 @@ Description: VPC Endpoints Stackset for the DevSecOps Project
 
 Parameters:
   #Application Generic Parameters
-  BuidGuid:
+  BuildGuid:
     Type: String
     Description: Unique Id used in build to force CloudFormation StackSet to update
   ProjectFriendlyName:
@@ -57,7 +57,7 @@ Resources:
     Type: AWS::CloudFormation::StackSet
     Properties: 
       StackSetName: !Sub "${ProjectResourcePrefix}-vpcendpointstackset-${EnvironmentType}"
-      TemplateURL: !Sub "https://${ProjectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${BuidGuid}/vpcendpointsstack_output.yaml"
+      TemplateURL: !Sub "https://${ProjectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${BuildGuid}/vpcendpointsstack_output.yaml"
       AutoDeployment: 
         Enabled: true
         RetainStacksOnAccountRemoval: !Ref RetainStacksOnAccountRemoval
