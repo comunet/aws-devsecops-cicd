@@ -17,6 +17,9 @@ Parameters:
   EnvironmentFriendlyName:
     Type: String
     Description: Friendly environment name of project
+  BuildGuid:
+    Type: String
+    Description: Unique Id used in build to force CloudFormation StackSet to update
   #Project Specific Parameters >>
 
   #<< Project Specific Parameters

@@ -1,0 +1,51 @@
+[
+  {
+    "object": "globalParameters",
+    "env": [
+      {
+        "environmentType": "test",
+        "environmentFriendlyName": "Test Release",
+        "defaultDeploymentGroup": "TEST-ORG-UNITS",
+        "defaultRetainStacksOnAccountRemoval": "false",
+        "globalparams": {
+          "BuildGuid": ">>PLACEHOLDER_BUILD_GUID<<",
+          "ProjectFriendlyName": "PROJECT-FRIENDLY-NAME",
+          "ProjectResourcePrefix": "PROJECT-RESOURCE-PREFIX"
+        }
+      },
+      {
+        "environmentType": "prod",
+        "environmentFriendlyName": "Production Release",
+        "defaultDeploymentGroup": "BASELINE-ORG-UNITS-PROD",
+        "defaultRetainStacksOnAccountRemoval": "true",
+        "globalparams": {
+          "BuildGuid": ">>PLACEHOLDER_BUILD_GUID<<",
+          "ProjectFriendlyName": "PROJECT-FRIENDLY-NAME",
+          "ProjectResourcePrefix": "PROJECT-RESOURCE-PREFIX"
+        }
+      }
+    ],
+    "deploymentGroups": [
+      {
+        "groupCode": "BASELINE-ORG-UNITS-PROD",
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX1",
+          "ou-XXXX-XXXXXXX2",
+          "ou-XXXX-XXXXXXX3"
+        ]
+      },
+      {
+        "groupCode": "TEST-ORG-UNITS",
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX4"
+        ]
+      },
+      {
+        "groupCode": "OVERRIDE-EXAMPLE-UNITS",
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX5"
+        ]
+      }
+    ]
+  }
+]

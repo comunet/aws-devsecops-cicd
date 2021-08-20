@@ -290,6 +290,9 @@ Resources:
           - Name: BUCKETFOLDER_PREFIX
             Value: 
               Ref: BucketFolderPrefix
+          - Name: PROJECT_PREFIX
+            Value: 
+              !Sub "${ProjectResourcePrefix}"
           - Name: KMS_KEY_ARN
             Value:
               Fn::ImportValue:
@@ -364,8 +367,7 @@ Resources:
                 RoleArn: 
                   !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
                 StackName: !Sub '${ProjectResourcePrefix}-test'
-                TemplateConfiguration: !Sub 'DeployableArtifact::cf/project/parameters/test.json'
-                TemplatePath: !Sub 'DeployableArtifact::MasterStack_output.yaml'
+                TemplatePath: !Sub 'DeployableArtifact::MasterStack-test.template.json'
               RunOrder: 1
             -
               Name: ExecuteChangeSetTestAccounts
@@ -425,8 +427,7 @@ Resources:
                 RoleArn: 
                   !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
                 StackName: !Sub '${ProjectResourcePrefix}-prod'
-                TemplateConfiguration: !Sub 'DeployableArtifact::cf/project/parameters/prod.json'
-                TemplatePath: !Sub 'DeployableArtifact::MasterStack_output.yaml'
+                TemplatePath: !Sub 'DeployableArtifact::MasterStack-prod.template.json'
               RunOrder: 1
             -
               Name: ExecuteChangeSetProdAccounts

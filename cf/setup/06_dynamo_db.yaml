@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup Stack (6) Creates DynamoDB Tables for storing DevSecOps configuration/orchestration data 
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+Resources:
+  # DynamoDB Tables
+  DynDbTableDevSecOpsGlobalParams:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "object"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "object"
+          KeyType: "HASH"
+      TableName: !Sub '${ProjectResourcePrefix}-DynDBTable-GlobalParams'
+      BillingMode: 'PAY_PER_REQUEST'
+      Tags:
+        - 
+          Key: "Project"
+          Value:
+            !Sub "${ProjectFriendlyName}"
+        -
+          Key: "Purpose"
+          Value: "DevSecOps Orchestration Configuration"
+
+  DynDbTableDevSecOpsOrgUnits:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "orgUnitId"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "orgUnitId"
+          KeyType: "HASH"
+      TableName: !Sub '${ProjectResourcePrefix}-DynDBTable-OrgUnits'
+      BillingMode: 'PAY_PER_REQUEST'
+      Tags:
+        - 
+          Key: "Project"
+          Value:
+            !Sub "${ProjectFriendlyName}"
+        -
+          Key: "Purpose"
+          Value: "DevSecOps Orchestration Configuration"
+
+  DynDbTableDevSecOpsStacks:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "name"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "name"
+          KeyType: "HASH"
+      TableName: !Sub '${ProjectResourcePrefix}-DynDBTable-Stacks'
+      BillingMode: 'PAY_PER_REQUEST'
+      Tags:
+        - 
+          Key: "Project"
+          Value:
+            !Sub "${ProjectFriendlyName}"
+        -
+          Key: "Purpose"
+          Value: "DevSecOps Orchestration Configuration"
+
+Outputs:
+  DynDbTableDevSecOpsGlobalParamsArn:
+    Description: Arn of the DynamoDB Table for Global Parameters
+    Value: !GetAtt [DynDbTableDevSecOpsGlobalParams,Arn]
+    Export:
+      Name: !Sub '${ProjectResourcePrefix}-DynDBTable-GlobalParams'
+
+  DynDbTableDevSecOpsOrgUnitsArn:
+    Description: Arn of the DynamoDB Table for tracking Org Units active regions
+    Value: !GetAtt [DynDbTableDevSecOpsOrgUnits,Arn]
+    Export:
+      Name: !Sub '${ProjectResourcePrefix}-DynDBTable-OrgUnits'
+
+  DynDbTableDevSecOpsStacksArn:
+    Description: Arn of the DynamoDB Table for deployed Stacks
+    Value: !GetAtt [DynDbTableDevSecOpsStacks,Arn]
+    Export:
+      Name: !Sub '${ProjectResourcePrefix}-DynDBTable-Stacks'

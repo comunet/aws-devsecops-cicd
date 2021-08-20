@@ -2,6 +2,8 @@ version: 0.2
 #Paths are relative to project root
 phases:
   install:
+    runtime-versions:
+      nodejs: 12
     commands: 
       - orignpmversion=$(npm -v)
       - echo "original npm version:" $orignpmversion
@@ -9,36 +11,44 @@ phases:
       - currentnpmversion=$(npm -v)
       - echo "current npm version:" $currentnpmversion
       - npm install -g jsonlint
+      - npm install -g json-dynamo-putrequest
       - npm install -g node-lambda
+      - npm install -g typescript
+      - npm install -g aws-cdk
   pre_build:
     commands:
       # Setting up build for Lambda NodeJS Functions
       - cd $CODEBUILD_SRC_DIR/
       - chmod +x ./cf/cicd/*.sh
       # Validating CFN Templates
-      - echo "Validating CFN templates"
+      - echo "Validating Static CF templates"
       # This fancy line compiles all yaml in our project folder excluding the '_template' folder
       - |
         for f in $(find ./cf/project -type d \( -name _template \) -prune -false -o -name '*.yaml' -o -name '*.yml'); do
           echo "Validating CloudFormation template file $f"
           aws cloudformation validate-template --template-body file://$f
         done
-      - |
-        for conf in ./cf/project/parameters/*.json; do
-          echo "Validating CFN parameters config file $conf"
-          jsonlint -q $conf
-        done
   build:
     commands:
+      # Create unique Build Guid
+      - buildGuid=$(date +"%Y%m%d%H%S")
+      # Build DynamoDB configuration data/update
+      - pwd
+      - cd $CODEBUILD_SRC_DIR/
+      - pwd
+      - ./cf/cicd/build_dynamo.sh -r $PROJECT_PREFIX
       # Package Lambdas as ZIP
       - pwd
       - cd $CODEBUILD_SRC_DIR/
       - pwd
       - ./cf/cicd/build_lambdas.sh
-      # Create unique Build Guid
-      - buildGuid=$(date +"%Y%m%d%H%S")
+      # Build Typescript AWS CDK
+      - pwd
+      - cd $CODEBUILD_SRC_DIR/
+      - pwd
+      - ./cf/cicd/build_ts_aws_cdk.sh -b $buildGuid -r $PROJECT_PREFIX
       # Copy stacks to S3
-      - echo "Copying stack templates to S3"
+      - echo "Copy Static CF Stack Templates to S3"
       - |
         for cf_template in $(find ./cf/project -type d \( -name _template \) -prune -false -o -name '*.yaml' -o -name '*.yml'); do
           templateName="$(echo $cf_template | rev | cut -d'/' -f 1 | rev)"
@@ -48,10 +58,14 @@ phases:
           aws cloudformation package --template-file $cf_template --output-template-file $templateOutputName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
           aws s3 cp "$templateOutputName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateOutputName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
         done
-      # Replace placeholder BuildGuid pram
-      - sed -i "s/>>PLACEHOLDER_BUILD_GUID<</${buildGuid}/g" ./cf/project/parameters/prod.json
-      - sed -i "s/>>PLACEHOLDER_BUILD_GUID<</${buildGuid}/g" ./cf/project/parameters/test.json
+      - echo "Copy CDK Generated CF Stack Templates to S3"
+      - |
+        for cf_template in $(find ./.build/cdk -type d \( -name _template \) -prune -false -o -name '*.template.json'); do
+          templateName="$(echo $cf_template | rev | cut -d'/' -f 1 | rev)"
+          echo "$templateName"
+          aws cloudformation package --template-file $cf_template --output-template-file $templateName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
+          aws s3 cp "$templateName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
+        done
 artifacts:
   files:
-    - ./MasterStack_output.yaml
-    - ./cf/project/parameters/*.json
+    - ./MasterStack-*.template.json

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "S3StackSet",
+    "type": "stackset",
+    "description": "This is a sample StackSet for provisioning a test S3 Bucket in AWS child accounts",
+    "templateFile": "S3Stack.yaml",
+    "retainStacksOnAccountRemoval": "false",
+    "enabled": "true",
+    "env": [
+      {
+        "environmentType": "prod",
+        "localparams": {
+          "Blah1": "notasblah",
+          "Blah2": "ssaassa"
+        }
+      },
+      {
+        "environmentType": "test",
+        "overrideDeploymentGroup": "OVERRIDE-EXAMPLE-UNITS",
+        "localparams": {
+          "Blah1": "soblah",
+          "Blah2": "1111"
+        }
+      }
+    ]
+  },
+  {
+    "name": "IAMSelfManagedStackSetTrustRolesStackSet",
+    "type": "stackset",
+    "description": "IAM Self-Managed StackSet Trust Roles for the DevSecOps Project",
+    "templateFile": "IAMSelfManagedStackSetTrustRolesStack.yaml",
+    "enabled": "false",
+    "env": [
+      {
+        "environmentType": "prod",
+        "localparams": {
+          "ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn": "REPLACE WITH ARN OF STACKSETADMIN ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account",
+          "ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn": "REPLACE WITH ARN OF LAMBDA ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account"
+        }
+      },
+      {
+        "environmentType": "test",
+        "localparams": {
+          "ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn": "REPLACE WITH ARN OF STACKSETADMIN ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account",
+          "ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn": "REPLACE WITH ARN OF LAMBDA ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account"
+        }
+      }
+    ]
+  }
+]

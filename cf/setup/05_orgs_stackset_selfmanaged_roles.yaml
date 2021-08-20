@@ -1,14 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Setup Stack (4) Creates roles to be assumed by CodePipeline services for cross account deployment
+Description: Setup Stack (6) Creates roles for SELF MANAGED stacksets to be deployed to child accounts for targeted account-based stacks
 Parameters:
   ProjectFriendlyName:
     Type: String
-    Default: Comunet Training DevSecOps CICD
+    Default: PROJECT-FRIENDLY-NAME
     Description: Enter an friendly project name for Tagging
 
   ProjectResourcePrefix:
     Type: String
-    Default: comunet-org-training-devsecops
+    Default: PROJECT-RESOURCE-PREFIX
     Description: Enter a unique prefix for the project resources.
 
 Resources:
