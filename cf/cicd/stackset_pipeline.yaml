@@ -109,6 +109,14 @@ Resources:
                 Action:
                   - sns:*
                 Resource: "*"
+        - PolicyName: S3-For-RDK
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: "*"
         - PolicyName: Secrets
           PolicyDocument:
             Version: "2012-10-17"
@@ -265,18 +273,18 @@ Resources:
       Topics:
         - !Ref CodePipelineSuccessSNSTopic
 
-  CloudFormationCodeBuildProject:
+  CloudFormationCodeBuildProjectTest:
     Type: AWS::CodeBuild::Project
     DependsOn: CodePipelineFailureSNSTopicPolicy
     Properties:
-      Name: !Sub '${AWS::StackName}-CloudFormationBuild'
+      Name: !Sub '${AWS::StackName}-CloudFormationBuild-Test'
       ServiceRole: !Ref CodeBuildRole
       EncryptionKey:
         Fn::ImportValue:
           !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
       Source:
         Type: CODEPIPELINE
-        BuildSpec: ./cf/cicd/buildspec.yaml
+        BuildSpec: ./cf/cicd/buildspec_test.yaml
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -287,9 +295,75 @@ Resources:
           - Name: CODEPIPELINE_BUCKET
             Value:
               !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+          - Name: RDK_RULES_S3_BUCKET
+            Value:
+              !Sub "${ProjectResourcePrefix}-artifacts-rdk-lambda-test"
+          - Name: RDK_LAMBDA_ROLE
+            Value:
+              Fn::ImportValue:
+                !Sub '${ProjectResourcePrefix}-rdk-lambda-execution-role-arn'
+          - Name: ENVIRONMENT_TYPE
+            Value:
+              !Sub "test"
+          - Name: CURRENT_AWS_ACCOUNT_ID
+            Value:
+              !Sub "${AWS::AccountId}"
+          - Name: LAMBDA_ROLE
+            Value:
+              !Ref LambdaExecutionRoleCore
           - Name: BUCKETFOLDER_PREFIX
             Value: 
-              Ref: BucketFolderPrefix
+              !Ref BucketFolderPrefix
+          - Name: PROJECT_PREFIX
+            Value: 
+              !Sub "${ProjectResourcePrefix}"
+          - Name: KMS_KEY_ARN
+            Value:
+              Fn::ImportValue:
+                !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+      TimeoutInMinutes: 15
+
+  CloudFormationCodeBuildProjectProd:
+    Type: AWS::CodeBuild::Project
+    DependsOn: CloudFormationCodeBuildProjectTest
+    Properties:
+      Name: !Sub '${AWS::StackName}-CloudFormationBuild-Prod'
+      ServiceRole: !Ref CodeBuildRole
+      EncryptionKey:
+        Fn::ImportValue:
+          !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: ./cf/cicd/buildspec_prod.yaml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !Ref CodeBuildImage
+        EnvironmentVariables:
+          - Name: CODEPIPELINE_BUCKET
+            Value:
+              !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+          - Name: RDK_RULES_S3_BUCKET
+            Value:
+              !Sub "${ProjectResourcePrefix}-artifacts-rdk-lambda-prod"
+          - Name: RDK_LAMBDA_ROLE
+            Value:
+              Fn::ImportValue:
+                !Sub '${ProjectResourcePrefix}-rdk-lambda-execution-role-arn'
+          - Name: ENVIRONMENT_TYPE
+            Value:
+              !Sub "prod"
+          - Name: CURRENT_AWS_ACCOUNT_ID
+            Value:
+              !Sub "${AWS::AccountId}"
+          - Name: LAMBDA_ROLE
+            Value:
+              !Ref LambdaExecutionRoleCore
+          - Name: BUCKETFOLDER_PREFIX
+            Value: 
+              !Ref BucketFolderPrefix
           - Name: PROJECT_PREFIX
             Value: 
               !Sub "${ProjectResourcePrefix}"
@@ -301,7 +375,7 @@ Resources:
 
   AppPipeline:
     Type: "AWS::CodePipeline::Pipeline"
-    DependsOn: CloudFormationCodeBuildProject
+    DependsOn: CloudFormationCodeBuildProjectProd
     Properties:
       Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-codepipeline"
       RoleArn: !GetAtt CodePipeLineRole.Arn
@@ -327,7 +401,7 @@ Resources:
                 RepositoryName: !Ref RepoName
               RunOrder: 1
         -
-          Name: Build-CloudFormation-Resources
+          Name: InitialBuild-DevSecOps-Resources
           Actions:
             -
               Name: CallCodeBuild
@@ -341,9 +415,9 @@ Resources:
                   Name: SourceCode
               OutputArtifacts:
                 -
-                  Name: DeployableArtifact
+                  Name: DeployableArtifactInitial
               Configuration:
-                ProjectName: !GetAtt CloudFormationCodeBuildProject.Arn
+                ProjectName: !GetAtt CloudFormationCodeBuildProjectTest.Arn
               RunOrder: 1
         -
           Name: Test-Infrastructure-Deploy
@@ -354,7 +428,7 @@ Resources:
                 !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
               InputArtifacts:
                 -
-                  Name: DeployableArtifact
+                  Name: DeployableArtifactInitial
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -367,7 +441,7 @@ Resources:
                 RoleArn: 
                   !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
                 StackName: !Sub '${ProjectResourcePrefix}-test'
-                TemplatePath: !Sub 'DeployableArtifact::MasterStack-test.template.json'
+                TemplatePath: !Sub 'DeployableArtifactInitial::MasterStack-test.template.json'
               RunOrder: 1
             -
               Name: ExecuteChangeSetTestAccounts
@@ -406,6 +480,28 @@ Resources:
                     }
               RunOrder: 1
         -
+          Name: FinalBuild-DevSecOps-Resources
+          Actions:
+            -
+              Name: CallCodeBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              InputArtifacts:
+                -
+                  Name: SourceCode
+                - 
+                  Name: DeployableArtifactInitial
+              OutputArtifacts:
+                -
+                  Name: DeployableArtifactFinal
+              Configuration:
+                ProjectName: !GetAtt CloudFormationCodeBuildProjectProd.Arn
+                PrimarySource: SourceCode
+              RunOrder: 1
+        -
           Name: Production-Infrastructure-Deploy
           Actions:
             -
@@ -414,7 +510,7 @@ Resources:
                 !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
               InputArtifacts:
                 -
-                  Name: DeployableArtifact
+                  Name: DeployableArtifactInitial
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -427,7 +523,7 @@ Resources:
                 RoleArn: 
                   !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
                 StackName: !Sub '${ProjectResourcePrefix}-prod'
-                TemplatePath: !Sub 'DeployableArtifact::MasterStack-prod.template.json'
+                TemplatePath: !Sub 'DeployableArtifactInitial::MasterStack-prod.template.json'
               RunOrder: 1
             -
               Name: ExecuteChangeSetProdAccounts
@@ -575,7 +671,7 @@ Resources:
     Properties:
       Handler: index.handler
       Runtime: nodejs14.x
-      CodeUri: ../../lambda/nodejs/src/sns_to_msteams/.build/sns_to_msteams.zip
+      CodeUri: ../../code/nodejs/src/sns_to_msteams/.build/sns_to_msteams.zip
       Description: CodePipeline SNS notifications to MS Teams
       MemorySize: 128
       Timeout: 30
@@ -604,7 +700,7 @@ Resources:
     Properties:
       Handler: index.handler
       Runtime: nodejs14.x
-      CodeUri: ../../lambda/nodejs/src/sns_to_slack/.build/sns_to_slack.zip
+      CodeUri: ../../code/nodejs/src/sns_to_slack/.build/sns_to_slack.zip
       Description: CodePipeline SNS notifications to Slack
       MemorySize: 128
       Timeout: 30

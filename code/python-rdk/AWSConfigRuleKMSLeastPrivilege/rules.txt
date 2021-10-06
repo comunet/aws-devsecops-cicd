@@ -1,0 +1,8 @@
+Desired Rules:
+- Key is customer managed
+- Any key that is disabled is ignored
+- Key that is whitelisted is ignored
+- Key cannot have a * principal
+- Any statement targeting the current root account is ignored
+- Any statement that permits kms:* is not permitted
+- No statement is permitted to have both Encrypt and any combination of Create/Delete/Put - unless it is a whitelisted principal

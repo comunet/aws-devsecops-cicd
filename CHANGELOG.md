@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2021-10-06
+
+### Added
+
+- AWS Config Rules Development Kit (RDK) now integrated in DevSecOps framework - deploy custom rules to the organisation
+- Added 'Default Region' to OrgUnits.json to provision resources that are 'install-once-per-account'
+- Added new deployment override in Stacks.json 'overrideDeploymentRegionUseDefaultOnly' - allows deploy to default region only
+- Additional setup role required for (RDK)
+
+### Changed
+
+- Renamed root folder '/lambda' to '/code' with inclusion of RDK and CDK frameworks (not strictly Lambda)
+- CodePipeline Workflow has changed and will need to be re-deployed (re-run `/cf/setup/automated_deployment.sh`)
+
 ## [2.0.0] - 2021-08-10
 
 ### Added

@@ -1,0 +1,18 @@
+{
+  "Version": "1.0",
+  "Parameters": {
+    "RuleName": "AWSConfigRuleKMSLeastPrivilege-{ENV}",
+    "Description": "AWSConfigRuleKMSLeastPrivilege",
+    "SourceRuntime": "python3.8",
+    "CodeKey": "AWSConfigRuleKMSLeastPrivilege-{ENV}.zip",
+    "InputParameters": "{}",
+    "OptionalParameters": "{\"ExecutionRoleName\":\"\",\"CMKWhitelist\" : \"\", \"PrincipalWhitelist\" : \"\"}",
+    "SourcePeriodic": "TwentyFour_Hours",
+    "CustomLambdaName":"RDK-KMSLeastPrivilege-{ENV}",
+    "RuleSets": [
+      "all-rules-test",
+      "all-rules-prod"
+    ]
+  },
+  "Tags": "[]"
+}

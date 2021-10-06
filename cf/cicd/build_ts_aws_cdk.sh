@@ -5,6 +5,7 @@ set -e
 
 usage() {           
     echo "options:"
+    echo "a     The AWS Account Id of CodeBuild (required for RDK)"
     echo "b     The unique BuildGuid"
     echo "p     The AWS Credentials Profile (used for running script locally)"
     echo "r     The Resource Prefix for resource names"
@@ -21,9 +22,10 @@ then
     exit 0
 fi 
 #get params
-while getopts :b:p:r: flag
+while getopts :a:b:p:r: flag
 do
     case "${flag}" in
+        a) awsAccountId=${OPTARG};;
         b) buildGuid=${OPTARG};;
         p) awsProfile=${OPTARG};;
         r) projectResourcePrefix=${OPTARG};;
@@ -31,7 +33,7 @@ do
 done
 
 if [[ "$buildGuid" == "" || "$projectResourcePrefix" == "" ]]; then
-    echo "Error: (opt -b and -r) must have a value"
+    echo "Error: (opt -a, -b, -p and -r) must have a value"
     exit_abnormal
     exit 1
 fi
@@ -39,7 +41,7 @@ fi
 pwd
 origPath=$(pwd)
 # move to CDK location
-declare -a tscdkdirs=("./lambda/ts-cdk/src")
+declare -a tscdkdirs=("./code/ts-cdk/src")
 pwd
 for p in "${tscdkdirs[@]}"
 do
@@ -58,10 +60,10 @@ do
         #Check if awsProfile has a non-null/non-zero value
         if [ -n "${awsProfile}" ]; then
             echo "Running using local profile '${awsProfile}'"
-            cdk synth --context buildGuid=${buildGuid} --context awsprofile=${awsProfile} --context projectResourcePrefix=${projectResourcePrefix} -o=${origPath}/.build/cdk
+            cdk synth --context buildGuid=${buildGuid} --context awsprofile=${awsProfile} --context awsAccountId=${awsAccountId} --context projectResourcePrefix=${projectResourcePrefix} -o=${origPath}/.build/cdk
         else
             echo "Running using default profile"
-            cdk synth --context buildGuid=${buildGuid} --context projectResourcePrefix=${projectResourcePrefix} -o=${origPath}/.build/cdk
+            cdk synth --context buildGuid=${buildGuid} --context awsAccountId=${awsAccountId} --context projectResourcePrefix=${projectResourcePrefix} -o=${origPath}/.build/cdk
         fi
     fi
     )

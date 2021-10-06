@@ -55,11 +55,10 @@ export async function Cdk_MasterStack_Creator(scope: cdk.Construct, id: string, 
     let l_stackName: string = props.nestedStacks[l_nestedStack].stackName;
 
     let l_outputFileName: string = "";
-    if (props.nestedStacks[l_nestedStack].type == "GENERATED_CDK_STACK") {
+    if (props.nestedStacks[l_nestedStack].type == "GENERATED_CDK_STACK" || props.nestedStacks[l_nestedStack].type == "GENERATED_RDK_STACK") {
       l_outputFileName = `${props.nestedStacks[l_nestedStack].stackName}.template.json`;
     } else {
-      let fileNameArray: string[] = `${props.nestedStacks[l_nestedStack].templateFile}`.split('.');
-      l_outputFileName = `${fileNameArray.splice(0,fileNameArray.length-1).toString()}_output.yaml`;
+      l_outputFileName = `${props.nestedStacks[l_nestedStack].templateFile}`;
     }
     let l_timeoutInMinutes: number = props.nestedStacks[l_nestedStack].timeoutInMinutes || 30;
     let templateUrl: string = `https://${projectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${l_outputFileName}`;

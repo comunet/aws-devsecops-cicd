@@ -30,7 +30,7 @@ Parameters:
   #<< Project Specific Parameters
 
 Resources:
-  # IAM Role for CloudFormation StackSet Execution in a Chile Account account
+  # IAM Role for CloudFormation StackSet Execution in a Child Account account
   AWSCloudFormationStackSetExecutionRole:
     Type: AWS::IAM::Role
     Metadata:

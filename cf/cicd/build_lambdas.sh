@@ -1,7 +1,7 @@
 #!/bin/bash 
 
 # these are the directories we want to check for lambda functions
-declare -a lambdirs=("./lambda/nodejs/src")
+declare -a lambdirs=("./code/nodejs/src")
 pwd
 origPath=$(pwd)
 for p in "${lambdirs[@]}"

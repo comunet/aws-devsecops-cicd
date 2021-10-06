@@ -1,17 +1,20 @@
 [{
   "orgUnitId": "ou-XXXX-XXXXXXX1",
+  "defaultRegion": "ap-southeast-2",
   "deploymentRegions": [
     "ap-southeast-2"
   ]
 },
 {
   "orgUnitId": "ou-XXXX-XXXXXXX2",
+  "defaultRegion": "us-east-2",
   "deploymentRegions": [
     "us-east-2"
   ]
 },
 {
   "orgUnitId": "ou-XXXX-XXXXXXX3",
+  "defaultRegion": "us-east-2",
   "deploymentRegions": [
     "us-east-2",
     "ap-southeast-2"
@@ -19,6 +22,7 @@
 },
 {
   "orgUnitId": "ou-XXXX-XXXXXXX4",
+  "defaultRegion": "us-east-1",
   "deploymentRegions": [
     "us-east-1",
     "us-east-2"
@@ -26,6 +30,7 @@
 },
 {
   "orgUnitId": "ou-XXXX-XXXXXXX5",
+  "defaultRegion": "eu-central-1",
   "deploymentRegions": [
     "eu-central-1"
   ]

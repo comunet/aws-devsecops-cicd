@@ -19,6 +19,7 @@ async function createApp(): Promise<cdk.App> {
   let l_generatedStacks = [];
 
   let l_buildGuid = app.node.tryGetContext('buildGuid') || '123456789';
+  let l_awsAccountId = app.node.tryGetContext('awsAccountId') || '123456789012';
   let l_projectResourcePrefix = app.node.tryGetContext('projectResourcePrefix') || 'myproject';
   let l_projectFriendlyName = app.node.tryGetContext('projectFriendlyName') || 'my project';
 
@@ -169,15 +170,25 @@ async function createApp(): Promise<cdk.App> {
         }
       }
       //Then add any global settings to the local stack
-      for (let l_env in g_globalParamList.env) {
-        if (g_globalParamList.env[l_env].environmentType === l_envsettings.environmentType) {
-          l_envStackParams.params = l_envStackParams.params.concat(g_globalParamList.env[l_env].params);
+      if (l_stack.type !== "rdkstackset") {
+        for (let l_env in g_globalParamList.env) {
+          if (g_globalParamList.env[l_env].environmentType === l_envsettings.environmentType) {
+            l_envStackParams.params = l_envStackParams.params.concat(g_globalParamList.env[l_env].params);
+          }
         }
+      } else {
+        //With RDK Stacksets, dont include any global params, instead auto generate a LambdaAccountId pram with current Account Id
+        let l_stackParam: CFEnvironmentParameters.CFParameterProperty = {
+          parameterUniqueKey: `${l_stack.name}-LambdaAccountId`,
+          parameterKey: 'LambdaAccountId',
+          parameterValue: l_awsAccountId
+        }
+        l_envStackParams.params.push(l_stackParam);
       }
       //Complete the local Stack Param List
       l_stackParamList.env.push(l_envStackParams);
 
-      if (l_stack.type == "stackset") {
+      if (l_stack.type == "stackset" || l_stack.type == "rdkstackset") {
         //Create stackset
 
         let l_paramDeploymentOrgUnitIdsValues: string[] = [];
@@ -216,12 +227,32 @@ async function createApp(): Promise<cdk.App> {
             let ou_data = await ddbDocClient.send(ou_command);
             // console.log(ou_data);
 
+            //Check if Stack is Single Region Deployment Only.
+            let l_overrideDeploymentRegionUseDefaultOnly = undefined;
+            if(l_envsettings.overrideDeploymentRegionUseDefaultOnly !== undefined && l_envsettings.overrideDeploymentRegionUseDefaultOnly === "true"){
+              l_overrideDeploymentRegionUseDefaultOnly = true;
+              console.log(` - stack to be deployed to single region only`);
+            }
+
             for (let l_ouItem of ou_data.Items) {
+              let l_regions: string[] = [];
+              if (l_overrideDeploymentRegionUseDefaultOnly) {
+                //Set to deploy only to default region
+                l_regions = [l_ouItem.defaultRegion];
+              } else if((l_envsettings.overrideDeploymentRegions != null) && (l_envsettings.overrideDeploymentRegions.length > 0)) {
+                //Set to deploy to Override Region(s)
+                console.log(` - stack to be deployed to override regions`);
+                l_regions = l_envsettings.overrideDeploymentRegions;
+              } else {
+                //Set to all deployment regions listed in OU
+                l_regions = l_ouItem.deploymentRegions;
+              }
+
               let l_stackInstanceGroup: cf.CfnStackSet.StackInstancesProperty = {
                 deploymentTargets: {
                   organizationalUnitIds: [l_paramDeploymentOrgUnitIdsValues[_i]]
                 },
-                regions: l_ouItem.deploymentRegions,
+                regions: l_regions,
                 parameterOverrides: l_envStackParams.params
               };
               l_stackInstanceGroups.groups?.push(l_stackInstanceGroup);
@@ -231,9 +262,11 @@ async function createApp(): Promise<cdk.App> {
 
         //Create StackSet
         let l_stackSetName = `${l_stack.name}-${l_envsettings.environmentType}`;
-        let l_stacksetTemplateFile = `${l_stack.templateFile}`;
+        //If templateFile includes environment variable {ENV} - replace with environmentType
+        let re = /{ENV}/gi;
+        let l_stacksetTemplateFile = l_stack.templateFile.replace(re, l_envsettings.environmentType);
         let l_stackDescription = `${l_stack.description}`;
-        let l_parentStackDescription = `Generated CDK stack '${l_stack.name}' from project '${l_projectFriendlyName}' - (env=${l_envsettings.environmentType})`;
+        let l_parentStackDescription = `Generated CDK stack '${l_stack.name}' from project '${l_projectFriendlyName}' (env=${l_envsettings.environmentType})`;
         let myStack1 = Cdk_StackSet_Creator(app, l_stackSetName, {
           stackSetName: l_stackSetName,
           stackSetTemplateFile: l_stacksetTemplateFile,
@@ -246,6 +279,10 @@ async function createApp(): Promise<cdk.App> {
           environmentType: l_envsettings.environmentType,
           projectFriendlyName: l_projectFriendlyName
         });
+        let l_type = "GENERATED_CDK_STACK";
+        if (l_stack.type == "rdkstackset") {
+          l_type = "GENERATED_RDK_STACK";
+        }
         let l_stackItem: CFStacks.CloudFormationStack = {
           stackName: l_stackSetName,
           type: "GENERATED_CDK_STACK",
@@ -260,15 +297,16 @@ async function createApp(): Promise<cdk.App> {
       } else {
         //Create stack
         let l_stackName = `${l_stack.name}-${l_envsettings.environmentType}`;
-        let l_stackTemplateFile = `${l_stack.templateFile}`;
+        let re = /{ENV}/gi;
+        let l_stackTemplateFile = l_stack.templateFile.replace(re, l_envsettings.environmentType);
         let l_envStackListNode = g_stacksList.env.find(function (item: any) {
           return item.environmentType === l_envsettings.environmentType;
         });
         let l_params = CFEnvironmentParameters.ConvertCFParameterListToRecords(l_envStackParams.params);
-
+        let l_type = "EXTERNAL_CF_TEMPLATE";
         let l_stackItem: CFStacks.CloudFormationStack = {
           stackName: l_stackName,
-          type: "EXTERNAL_CF_TEMPLATE",
+          type: l_type,
           templateFile: l_stackTemplateFile,
           params: l_params,
           dependsOn: l_stack_dependsOn
@@ -288,7 +326,7 @@ async function createApp(): Promise<cdk.App> {
     let myMasterStack1 = Cdk_MasterStack_Creator(app, l_stackName, {
       environmentFriendlyName: g_globalParamList.env[l_env].environmentFriendlyName,
       environmentType: g_globalParamList.env[l_env].environmentType,
-      description: `Generated CDK Master Stack for project '${l_projectFriendlyName}' - (env=${g_globalParamList.env[l_env].environmentType})`,
+      description: `Generated CDK Master Stack for project '${l_projectFriendlyName}' (env=${g_globalParamList.env[l_env].environmentType})`,
       masterStackName: l_stackName,
       nestedStacks: l_NestedStacks?.stacks || [],
       projectFriendlyName: l_projectFriendlyName

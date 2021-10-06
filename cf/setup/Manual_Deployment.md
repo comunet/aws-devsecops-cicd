@@ -121,7 +121,7 @@ aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yam
 aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
 ```
 
-# 3.3.9 Setup DynamoDB tables used for Config Management to DEPLOYMENTE Account <!-- omit in toc -->
+# 3.3.9 Setup DynamoDB tables used for Config Management to DEPLOYMENT Account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 aws cloudformation package --template-file ./cf/setup/06_dynamo_db.yaml --output-template-file "./.build/_06_dynamo_db.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
@@ -142,7 +142,17 @@ npm install node-lambda -g
 ./cf/cicd/build_lambdas.sh
 ```
 
-#### 3.3.10 Setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account <!-- omit in toc -->
+#### 3.3.10 Setup RDK Lambda Role and rdk deploy bucket in DEPLOYMENT account <!-- omit in toc -->
+1. Compile the CloudFormation script
+```
+aws cloudformation package --template-file ./cf/setup/07_setup_RDK_role_and_deploy_bucket.yaml --output-template-file "./.build/07_setup_RDK_role_and_deploy_bucket.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
+```
+2. Deploy the CloudFormation script
+```
+aws cloudformation deploy --template-file "./.build/07_setup_RDK_role_and_deploy_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-rdk" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
+```
+
+#### 3.3.11 Setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
 sam package --template-file ./cf/cicd/stackset_pipeline.yaml --output-template-file "./.build/_stackset_pipeline.yaml" --s3-bucket $s3ArtifactsBucket --profile $profileDeploymentAccount --region $awsregion

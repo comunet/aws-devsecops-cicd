@@ -126,6 +126,7 @@ Resources:
               - cloudformation:*
               - kms:*
               - servicecatalog:*
+              - config:*
             Resource: "*"
           -
             Effect: Allow

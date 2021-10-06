@@ -1,8 +1,8 @@
-# AWS DevSecOps CI/CD Framework for AWS Organisations (v2)
+# AWS DevSecOps CI/CD Framework for AWS Organizations (v3)
 
 This project is a framework for delivering governed DevSecOps CloudFormation Stacks across AWS Accounts allowing you to target specific targeted Regions and Organizational Units (OUs) per stack. This solution is suitable for any organisation which uses a AWS Organisations/AWS Control Tower account setup.
 
-- [AWS DevSecOps CI/CD Framework for AWS Organisations (v2)](#aws-devsecops-cicd-framework-for-aws-organisations-v2)
+- [AWS DevSecOps CI/CD Framework for AWS Organizations (v3)](#aws-devsecops-cicd-framework-for-aws-organizations-v3)
 	- [1. About](#1-about)
 	- [2. Prerequisite Setup:](#2-prerequisite-setup)
 	- [3. Initial Setup (Once-off) - Setting up Orchestration](#3-initial-setup-once-off---setting-up-orchestration)
@@ -21,11 +21,12 @@ This project is a framework for delivering governed DevSecOps CloudFormation Sta
 			- [4.2.3 OrgUnits.json](#423-orgunitsjson)
 			- [4.2.3 Stacks.json](#423-stacksjson)
 		- [4.2 Creating your own DevSevOps Stacks and StackSets](#42-creating-your-own-devsevops-stacks-and-stacksets)
+		- [4.3 AWS Config Custom Rules with the Rule Development Kit (RDK)](#43-aws-config-custom-rules-with-the-rule-development-kit-rdk)
 	- [5. Testing Locally](#5-testing-locally)
 		- [5.1 AWS CDK](#51-aws-cdk)
 		- [5.2 DynamoDB Config Updates](#52-dynamodb-config-updates)
-	- [6. Todos](#6-todos)
-	- [7. Contact](#7-contact)
+	- [7. Todos](#7-todos)
+	- [8. Contact](#8-contact)
 
 ## 1. About
 This solution is an easy way to make DevSecOps changes to accounts with governed workflow to allow testing environments and approval steps before deployment to 'production' accounts. By creating your own StackSets you granularly deploy to given environments unique resources or controls such as VPCs, VPC Endpoints, Roles, Policies, etc.
@@ -210,7 +211,7 @@ The three main files are:
 
 These are described further in next sections.
 
-These json files get deployed to a series of DynamoDB tables everytime the CI/CD is triggered which the AWS CDK code (./lambda/ts-cdk) queries to generate the necessary stackset structure.
+These json files get deployed to a series of DynamoDB tables everytime the CI/CD is triggered which the AWS CDK code (./code/ts-cdk) queries to generate the necessary stackset structure.
 
 While not 100% necessary (for AWS CDK at least), by storing the json files in DynamoDB, this allows you to build other solutions (such as Lambda Scripts) that can later access the current DevSecOps deployment settings if necessary.
 
@@ -235,6 +236,10 @@ The purpose of this file is to specify which AWS Regions you want a given Org Un
 
 Whenever you add a new OrgUnit to your AWS Organization, this file needs to be updated to include this new Org Unit and the regions you want DevSecOps code deployed to this Org Unit.
 
+Within a given OrgUnit, list all regions you will deploying resources in a list of 'deploymentRegions'.
+
+Some StackSets may contain resources that can only be installed once per Account. Specify the `defaultRegion` where you want such global resources deployed. In the `Stacks.json` for the given StackSet specify `overrideDeploymentRegionUseDefaultOnly` to deploy to this `defaultRegion` only.
+
 #### 4.2.3 Stacks.json
 [Stacks.json] is where all the magic occurs. You can list new Stacks to be made as a StackSet (type=stackset) to deploy instances to any target Org Unit or as a Stack (type=stack) to simply deploy the stack to the Manaagement Account.
 
@@ -246,19 +251,21 @@ The only difference with StackSets and Stacks is that the AWS CDK code will also
 **Special Fields**
 > There are a few special fields you can apply to Stacks in file, many optional. These are described below:
 
-| Field Name                    | Details                                                                                                           |
-| :---------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-| name                          | The name to be applied to the stackset or stack                                                                   |
-| type                          | Either 'stackset' or 'stack' - determines whether StackSet is registered with auto deploy settings                |
-| description                   | Friendly description applied to the stack                                                                         |
-| templateFile                  | Name of the CF Template file as found in (/cf/project) folder of the stack to be deployed.                        |
-| retainStacksOnAccountRemoval  | ('stackset only) Override the default setting of whether this stack will be retained or not if Account is removed |
-| enabled                       | [optional] 'true' or 'false' - A quick way to enable or disable a stack from deployment. Default is 'true'        |
-| dependsOn                     | [optional] Add a dependancy on this stack to another Stack.                                                       |
-| env[].overrideDeploymentGroup | [optional] Specify a different deployment group for this stack env than the GlobalParams.json default             |
+| Field Name                                   | Details                                                                                                                                                |
+| :------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| name                                         | The name to be applied to the stackset or stack                                                                                                        |
+| type                                         | Either 'stackset' or 'stack' - determines whether StackSet is registered with auto deploy settings                                                     |
+| description                                  | Friendly description applied to the stack                                                                                                              |
+| templateFile                                 | Name of the CF Template file as found in (/cf/project) folder of the stack to be deployed.                                                             |
+| retainStacksOnAccountRemoval                 | ('stackset only) Override the default setting of whether this stack will be retained or not if Account is removed                                      |
+| enabled                                      | [optional] 'true' or 'false' - A quick way to enable or disable a stack from deployment. Default is 'true'                                             |
+| dependsOn                                    | [optional] Add a dependancy on this stack to another Stack.                                                                                            |
+| env[].overrideDeploymentGroup                | [optional] Specify a different deployment group for this stack env than the GlobalParams.json default                                                  |
+| env[].overrideDeploymentRegionUseDefaultOnly | [optional] Specifies that the StackSet will only deploy to the one (1) default region in the account as specified in the OrgUnits.json 'defaultRegion' |
+| env[].overrideDeploymentRegions              | [optional] Specify a different region list for this stack env in EVERY OU/account, rather that the OU deployment regions listed in OrgUnits.json       |
 
 ### 4.2 Creating your own DevSevOps Stacks and StackSets
-To create you own Stacks and associated StackSet simply duplicate the folder '/cf/project/_template'. Rename the folder, stack to reflect the group of resources you are trying to create. 
+To create you own Stacks and associated StackSet simply duplicate the folder `/cf/project/_template`. Rename the folder, stack to reflect the group of resources you are trying to create. 
 
 For example, if you wanted to standardise VPC Endpoints across accounts you might setup the following:
 - cf
@@ -280,7 +287,14 @@ Add any unique local parameters for the stack in the 'prod' and 'test' environme
 
 Update any other deployment group settings unique to your stack
 
-The AWS CDK code (/lambda/ts-cdk) will automatically generate the structure to deploy this new StackSet/Stack provided the field 'enabled' is not equal 'false'.
+The AWS CDK code (`/code/ts-cdk`) will automatically generate the structure to deploy this new StackSet/Stack provided the field 'enabled' is not equal 'false'.
+
+### 4.3 AWS Config Custom Rules with the Rule Development Kit (RDK)
+The DevSecOps framework now supports the AWS Config RDK to easily author and deploy custom AWS Config rules.
+
+Detailed documentation on using the RDK within this framework has been added to the file:
+`/code/python-rdk/README.md`
+
 
 ## 5. Testing Locally
 ### 5.1 AWS CDK
@@ -300,13 +314,12 @@ Run the DynamoDB Build script from a bash terminal with:
 ./cf/cicd/build_dynamo.sh -p [PROFILE-ORG-DEPLOYMENTACCOUNT] -r [PROJECT-RESOURCE-PREFIX]
 ```
 
-## 6. Todos
+## 7. Todos
 
 Things I would like to extend on this framework:
-- [ ] Have a separate 'simple' CI/CD for DEV environment (with no Approval)
 - [ ] Allow config files to specify OU names wherever OrgUnitIds are currently used for ease of reading.
 
-## 7. Contact
+## 8. Contact
 
 **Damien Coyle**  
 Princial Technologist  

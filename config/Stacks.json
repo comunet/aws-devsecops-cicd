@@ -29,10 +29,11 @@
     "type": "stackset",
     "description": "IAM Self-Managed StackSet Trust Roles for the DevSecOps Project",
     "templateFile": "IAMSelfManagedStackSetTrustRolesStack.yaml",
-    "enabled": "false",
+    "retainStacksOnAccountRemoval": "true",
     "env": [
       {
         "environmentType": "prod",
+        "overrideDeploymentRegionUseDefaultOnly": "true",
         "localparams": {
           "ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn": "REPLACE WITH ARN OF STACKSETADMIN ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account",
           "ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn": "REPLACE WITH ARN OF LAMBDA ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account"
@@ -40,9 +41,55 @@
       },
       {
         "environmentType": "test",
+        "overrideDeploymentRegionUseDefaultOnly": "true",
         "localparams": {
           "ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn": "REPLACE WITH ARN OF STACKSETADMIN ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account",
           "ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn": "REPLACE WITH ARN OF LAMBDA ACCOUNT CREATED in (/cf/setup/05_orgs_stackset_selfmanaged_roles.yaml) CF output in Management Account"
+        }
+      }
+    ]
+  },
+  {
+    "name": "CrossAccountRDKConfigRoleStackSet",
+    "type": "stackset",
+    "description": "AWS Config IAM Role for cross-account rules deployment using RDK for the DevSecOps Project",
+    "templateFile": "RDKConfigCrossAccountRole.yaml",
+    "env": [
+      {
+        "environmentType": "prod",
+        "localparams": {
+          "AWSDeploymentAccountNumber": "AWSACCNUMBER-DEPLOYMENTACCOUNT"
+        }
+      },
+      {
+        "environmentType": "test",
+        "localparams": {
+          "AWSDeploymentAccountNumber": "AWSACCNUMBER-DEPLOYMENTACCOUNT"
+        }
+      }
+    ]
+  },
+  {
+    "name": "CustomRDKAWSConfigRulesStackSet",
+    "type": "rdkstackset",
+    "description": "Custom RDK AWS Config Rules StackSet - Template File references generated RDK file",
+    "templateFile": "awsconfig-allrules-{ENV}.template.json",
+    "dependsOn": "CrossAccountRDKConfigRoleStackSet",
+    "env": [
+      {
+        "environmentType": "prod",
+        "localparams": {
+          "AWSConfigRuleKMSLeastPrivilegeCMKWhitelist": "",
+          "AWSConfigRuleKMSLeastPrivilegePrincipalWhitelist": "",
+          "AWSConfigRuleKMSLeastPrivilegeExecutionRoleName": "rdk-cross-account-config-role"
+        }
+      },
+      {
+        "environmentType": "test",
+        "localparams": {
+          "AWSConfigRuleKMSLeastPrivilegeCMKWhitelist": "",
+          "AWSConfigRuleKMSLeastPrivilegePrincipalWhitelist": "",
+          "AWSConfigRuleKMSLeastPrivilegeExecutionRoleName": "rdk-cross-account-config-role"
         }
       }
     ]

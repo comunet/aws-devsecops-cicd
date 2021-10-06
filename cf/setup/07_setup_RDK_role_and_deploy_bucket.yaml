@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template for the lambda role used by the AWS Config Rule Lambda's.
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Default: PROJECT-FRIENDLY-NAME
+    Description: Enter an friendly project name for Tagging
+
+  ProjectResourcePrefix:
+    Type: String
+    Default: PROJECT-RESOURCE-PREFIX
+    Description: Enter a unique prefix for the project resources.
+
+Resources:
+  RDKLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        RDK-Config-Lambda-Role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
+      Policies:
+        - 
+          PolicyName: "Assume-STS"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "sts:AssumeRole"
+                Resource: "*"
+      Tags:
+          -
+            Key: "Project"
+            Value:
+              !Sub "${ProjectFriendlyName}"
+          -
+            Key: "Purpose"
+            Value: "Role used by the RDK Config Rules to execute in a cross account manner"
+
+  RDKLambdaArtifactBucketTest:
+    Type: AWS::S3::Bucket
+    # DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectResourcePrefix}-artifacts-rdk-lambda-test"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      Tags:
+          -
+            Key: "Project"
+            Value:
+              !Sub "${ProjectFriendlyName}"
+          -
+            Key: "Environment"
+            Value: "Test"
+          -
+            Key: "Purpose"
+            Value: "RDK Lambda Build Artifacts"
+
+  RDKLambdaArtifactBucketProd:
+    Type: AWS::S3::Bucket
+    # DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectResourcePrefix}-artifacts-rdk-lambda-prod"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      Tags:
+          -
+            Key: "Project"
+            Value:
+              !Sub "${ProjectFriendlyName}"
+          -
+            Key: "Environment"
+            Value: "Production"
+          -
+            Key: "Purpose"
+            Value: "RDK Lambda Build Artifacts"
+
+Outputs:
+  RDKLambdaRoleArn:
+    Description: "Role used by the RDK Config Rules to execute in a cross account manner"
+    Value: !GetAtt [RDKLambdaRole, Arn]
+    Export:
+      Name: !Sub '${ProjectResourcePrefix}-rdk-lambda-execution-role-arn'
+    

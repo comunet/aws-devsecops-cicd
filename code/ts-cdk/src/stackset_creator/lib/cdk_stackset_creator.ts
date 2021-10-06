@@ -25,9 +25,7 @@ export async function Cdk_StackSet_Creator(scope: cdk.Construct, id: string, pro
   const buildGuid = stack.node.tryGetContext('buildGuid') || '123456789';
   const projectResourcePrefix = stack.node.tryGetContext('projectResourcePrefix') || 'myproject';
 
-  let fileArray: string[] = props.stackSetTemplateFile.split('.');
-  let fileOutputname: string = `${fileArray.splice(0,fileArray.length-1).toString()}_output.yaml`;
-  let templateUrl: string = `https://${projectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${fileOutputname}`;
+  let templateUrl: string = `https://${projectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${props.stackSetTemplateFile}`;
 
   let l_stackInstanceGroups: cf.CfnStackSet.StackInstancesProperty[] = [];
   console.log(` - stack instance '${props.stackSetName}' deployment groups`);
@@ -51,8 +49,8 @@ export async function Cdk_StackSet_Creator(scope: cdk.Construct, id: string, pro
     capabilities: ["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"],
     parameters: props.stackParams,
     operationPreferences: {
-      maxConcurrentPercentage: 100,
-      failureTolerancePercentage: 10
+      failureToleranceCount: 2,
+      maxConcurrentCount: 10
     }
   });
   let l_purpose :string = "DevSecOps Orchestration Stack";
