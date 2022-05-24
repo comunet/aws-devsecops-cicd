@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template to create custom AWS Config role.
+
+Parameters:
+  ProjectFriendlyName:
+    Type: String
+    Description: Enter an friendly project name for Tagging
+  ProjectResourcePrefix:
+    Type: String
+    Description: Enter a unique prefix for the project resources.
+  EnvironmentType:
+    Type: String
+    AllowedValues:
+      - prod
+      - test
+    Description: Enter destination environment type
+  EnvironmentFriendlyName:
+    Type: String
+    Description: Friendly environment name of project
+  BuildGuid:
+    Type: String
+    Description: Unique Id used in build to force CloudFormation StackSet to update
+  #Project Specific Parameters >>
+  AWSDeploymentAccountNumber:
+    Type: String
+    Description: AWS Account Id of the Deployment Account for where RDK rules will be run from
+  #<< Project Specific Parameters
+
+Resources:
+  CrossAccountRDKConfigRole:
+    Type: AWS::IAM::Role
+    Properties:
+      #This role name is used in the RDK Config master stack and so if changed here should be changed there
+      RoleName: rdk-cross-account-config-role
+      Path: "/"
+      ManagedPolicyArns:
+      - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSConfigRole"
+      - !Sub "arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: LOCAL
+          Effect: Allow
+          Principal:
+            Service:
+            - config.amazonaws.com
+          Action: sts:AssumeRole
+        - Sid: REMOTE
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWSDeploymentAccountNumber}:role/RDK-Config-Lambda-Role"
+          Action: sts:AssumeRole
