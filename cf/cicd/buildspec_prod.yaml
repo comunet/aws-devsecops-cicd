@@ -1,0 +1,36 @@
+version: 0.2
+#Paths are relative to project root
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+    commands: 
+      - orignpmversion=$(npm -v)
+      - echo "original npm version:" $orignpmversion
+      - npm i npm@latest -g
+      - currentnpmversion=$(npm -v)
+      - echo "current npm version:" $currentnpmversion
+      - pip install rdk
+  pre_build:
+    commands:
+      # Setting up build for Lambda NodeJS Functions
+      - cd $CODEBUILD_SRC_DIR/
+      - chmod +x ./cf/cicd/*.sh
+  build:
+    commands:
+      # Get unique Build Guid from Initial CodeBuild Step
+      - buildGuid=`cat "${CODEBUILD_SRC_DIR_DeployableArtifactInitial}/buildguid.txt"`
+      - echo "buildGuid=${buildGuid}"
+      - pwd
+      - cd $CODEBUILD_SRC_DIR/
+      - pwd
+      # Build AWS Config RDK
+      - ./cf/cicd/build_rdk.sh -s $RDK_RULES_S3_BUCKET -l $RDK_LAMBDA_ROLE -e $ENVIRONMENT_TYPE
+      # Update Rule Template to Artifact S3 Bucket
+      - echo "Copy RDK Generated CF Stack Templates to S3"
+      - |
+        for cf_template in $(find ./.build/rdk -type d \( -name _template \) -prune -false -o -name '*.template.json'); do
+          templateName="$(echo $cf_template | rev | cut -d'/' -f 1 | rev)"
+          echo "$templateName"
+          aws s3 cp "$cf_template" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
+        done

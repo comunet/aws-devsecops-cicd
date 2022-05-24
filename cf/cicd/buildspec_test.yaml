@@ -15,6 +15,7 @@ phases:
       - npm install -g node-lambda
       - npm install -g typescript
       - npm install -g aws-cdk
+      - pip install rdk
   pre_build:
     commands:
       # Setting up build for Lambda NodeJS Functions
@@ -32,31 +33,26 @@ phases:
     commands:
       # Create unique Build Guid
       - buildGuid=$(date +"%Y%m%d%H%S")
-      # Build DynamoDB configuration data/update
+      - echo -n "$buildGuid" > buildguid.txt
       - pwd
       - cd $CODEBUILD_SRC_DIR/
       - pwd
+      # Build DynamoDB configuration data/update
       - ./cf/cicd/build_dynamo.sh -r $PROJECT_PREFIX
       # Package Lambdas as ZIP
-      - pwd
-      - cd $CODEBUILD_SRC_DIR/
-      - pwd
       - ./cf/cicd/build_lambdas.sh
       # Build Typescript AWS CDK
-      - pwd
-      - cd $CODEBUILD_SRC_DIR/
-      - pwd
-      - ./cf/cicd/build_ts_aws_cdk.sh -b $buildGuid -r $PROJECT_PREFIX
+      - ./cf/cicd/build_ts_aws_cdk.sh -b $buildGuid -r $PROJECT_PREFIX -a $CURRENT_AWS_ACCOUNT_ID
+      # Build AWS Config RDK
+      - ./cf/cicd/build_rdk.sh -s $RDK_RULES_S3_BUCKET -l $RDK_LAMBDA_ROLE -e $ENVIRONMENT_TYPE
       # Copy stacks to S3
       - echo "Copy Static CF Stack Templates to S3"
       - |
         for cf_template in $(find ./cf/project -type d \( -name _template \) -prune -false -o -name '*.yaml' -o -name '*.yml'); do
           templateName="$(echo $cf_template | rev | cut -d'/' -f 1 | rev)"
-          templateOutputName="$(echo $templateName | cut -d '.' -f 1 | awk '{print $1"_output.yaml"}')"
           echo "$templateName"
-          echo "$templateOutputName"
-          aws cloudformation package --template-file $cf_template --output-template-file $templateOutputName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
-          aws s3 cp "$templateOutputName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateOutputName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
+          aws cloudformation package --template-file $cf_template --output-template-file $templateName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
+          aws s3 cp "$templateName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
         done
       - echo "Copy CDK Generated CF Stack Templates to S3"
       - |
@@ -66,6 +62,15 @@ phases:
           aws cloudformation package --template-file $cf_template --output-template-file $templateName --s3-bucket $CODEPIPELINE_BUCKET --kms-key-id $KMS_KEY_ARN
           aws s3 cp "$templateName" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
         done
+      # Update Rule Template to Artifact S3 Bucket
+      - echo "Copy RDK Generated CF Stack Templates to S3"
+      - |
+        for cf_template in $(find ./.build/rdk -type d \( -name _template \) -prune -false -o -name '*.template.json'); do
+          templateName="$(echo $cf_template | rev | cut -d'/' -f 1 | rev)"
+          echo "$templateName"
+          aws s3 cp "$cf_template" "s3://$CODEPIPELINE_BUCKET/$buildGuid/$templateName" --sse aws:kms --sse-kms-key-id $KMS_KEY_ARN
+        done
 artifacts:
   files:
     - ./MasterStack-*.template.json
+    - ./buildguid.txt
