@@ -10,16 +10,16 @@
       {
         "environmentType": "prod",
         "localparams": {
-          "Blah1": "notasblah",
-          "Blah2": "ssaassa"
+          "ExampleParam1": "Hello",
+          "ExampleParam2": "Prod World"
         }
       },
       {
         "environmentType": "test",
         "overrideDeploymentGroup": "OVERRIDE-EXAMPLE-UNITS",
         "localparams": {
-          "Blah1": "soblah",
-          "Blah2": "1111"
+          "ExampleParam1": "Hello",
+          "ExampleParam2": "Test World"
         }
       }
     ]
