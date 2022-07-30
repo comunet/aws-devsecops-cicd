@@ -24,28 +24,6 @@
           "ProjectResourcePrefix": "PROJECT-RESOURCE-PREFIX"
         }
       }
-    ],
-    "deploymentGroups": [
-      {
-        "groupCode": "BASELINE-ORG-UNITS-PROD",
-        "orgUnitIds": [
-          "ou-XXXX-XXXXXXX1",
-          "ou-XXXX-XXXXXXX2",
-          "ou-XXXX-XXXXXXX3"
-        ]
-      },
-      {
-        "groupCode": "TEST-ORG-UNITS",
-        "orgUnitIds": [
-          "ou-XXXX-XXXXXXX4"
-        ]
-      },
-      {
-        "groupCode": "OVERRIDE-EXAMPLE-UNITS",
-        "orgUnitIds": [
-          "ou-XXXX-XXXXXXX5"
-        ]
-      }
     ]
   }
 ]

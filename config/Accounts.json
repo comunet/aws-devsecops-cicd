@@ -1,0 +1,8 @@
+[{
+  "accountId": "000000000000",
+  "defaultRegion": "us-east-1",
+  "deploymentRegions": [
+    "us-east-1"
+  ]
+}
+]

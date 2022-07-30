@@ -1,7 +1,14 @@
-import * as cdk from '@aws-cdk/core';
-import * as cf from '@aws-cdk/aws-cloudformation';
+import {
+  Stack,
+  StackProps,
+  CfnResource,
+  Tags,
+} from "aws-cdk-lib";
+import * as cf from "aws-cdk-lib/aws-cloudformation";
+import { Construct } from "constructs";
+import { DefaultStackSynthesizer } from 'aws-cdk-lib';
 
-interface StackSetCreatorProps extends cdk.StackProps {
+interface StackSetCreatorProps extends StackProps {
   stackSetName: string;
   stackSetTemplateFile: string,
   stackDescription: string;
@@ -11,6 +18,7 @@ interface StackSetCreatorProps extends cdk.StackProps {
   environmentType: string,
   environmentFriendlyName: string,
   projectFriendlyName: string
+  synthesizer: DefaultStackSynthesizer
 }
 
 export module StackInstances {
@@ -19,13 +27,13 @@ export module StackInstances {
   }
 }
 
-export async function Cdk_StackSet_Creator(scope: cdk.Construct, id: string, props: StackSetCreatorProps) {
-  const stack = new cdk.Stack(scope, id, props);
+export async function Cdk_StackSet_Creator(scope: Construct, id: string, props: StackSetCreatorProps) {
+  const stack = new Stack(scope, id, props);
 
   const buildGuid = stack.node.tryGetContext('buildGuid') || '123456789';
   const projectResourcePrefix = stack.node.tryGetContext('projectResourcePrefix') || 'myproject';
 
-  let templateUrl: string = `https://${projectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${props.stackSetTemplateFile}`;
+  let templateUrl: string = `https://${projectResourcePrefix}-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${props.stackSetTemplateFile}`;
 
   let l_stackInstanceGroups: cf.CfnStackSet.StackInstancesProperty[] = [];
   console.log(` - stack instance '${props.stackSetName}' deployment groups`);
@@ -41,6 +49,7 @@ export async function Cdk_StackSet_Creator(scope: cdk.Construct, id: string, pro
     stackSetName: props.stackSetName,
     description: props.stackDescription,
     permissionModel: "SERVICE_MANAGED",
+    callAs: "DELEGATED_ADMIN", 
     stackInstancesGroup: l_stackInstanceGroups,
     autoDeployment: {
       enabled: true,
@@ -54,10 +63,10 @@ export async function Cdk_StackSet_Creator(scope: cdk.Construct, id: string, pro
     }
   });
   let l_purpose :string = "DevSecOps Orchestration Stack";
-  cdk.Tags.of(l_stackset).add('Name', props.stackSetName);
-  cdk.Tags.of(l_stackset).add('Project', props.projectFriendlyName);
-  cdk.Tags.of(l_stackset).add('Purpose', l_purpose);
-  cdk.Tags.of(l_stackset).add('Environment', props.environmentFriendlyName);
+  Tags.of(l_stackset).add('Name', props.stackSetName);
+  Tags.of(l_stackset).add('Project', props.projectFriendlyName);
+  Tags.of(l_stackset).add('Purpose', l_purpose);
+  Tags.of(l_stackset).add('Environment', props.environmentFriendlyName);
 
   return {
     stack,

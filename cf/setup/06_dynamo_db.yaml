@@ -57,6 +57,50 @@ Resources:
           Key: "Purpose"
           Value: "DevSecOps Orchestration Configuration"
 
+  DynDbTableDevSecOpsAccounts:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "accountId"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "accountId"
+          KeyType: "HASH"
+      TableName: !Sub '${ProjectResourcePrefix}-DynDBTable-Accounts'
+      BillingMode: 'PAY_PER_REQUEST'
+      Tags:
+        - 
+          Key: "Project"
+          Value:
+            !Sub "${ProjectFriendlyName}"
+        -
+          Key: "Purpose"
+          Value: "DevSecOps Orchestration Configuration"
+
+  DynDbTableDevSecOpsDeploymentGroups:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "groupCode"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "groupCode"
+          KeyType: "HASH"
+      TableName: !Sub '${ProjectResourcePrefix}-DynDBTable-DeploymentGroups'
+      BillingMode: 'PAY_PER_REQUEST'
+      Tags:
+        - 
+          Key: "Project"
+          Value:
+            !Sub "${ProjectFriendlyName}"
+        -
+          Key: "Purpose"
+          Value: "DevSecOps Orchestration Configuration"
+
   DynDbTableDevSecOpsStacks:
     Type: "AWS::DynamoDB::Table"
     Properties:
@@ -91,6 +135,18 @@ Outputs:
     Value: !GetAtt [DynDbTableDevSecOpsOrgUnits,Arn]
     Export:
       Name: !Sub '${ProjectResourcePrefix}-DynDBTable-OrgUnits'
+
+  DynDbTableDevSecOpsAccountsArn:
+    Description: Arn of the DynamoDB Table for tracking Accounts active regions
+    Value: !GetAtt [DynDbTableDevSecOpsAccounts,Arn]
+    Export:
+      Name: !Sub '${ProjectResourcePrefix}-DynDBTable-Accounts'
+
+  DynDbTableDevSecOpsDeploymentGroupsArn:
+    Description: Arn of the DynamoDB Table for configuring DeploymentGroups
+    Value: !GetAtt [DynDbTableDevSecOpsDeploymentGroups,Arn]
+    Export:
+      Name: !Sub '${ProjectResourcePrefix}-DynDBTable-DeploymentGroups'
 
   DynDbTableDevSecOpsStacksArn:
     Description: Arn of the DynamoDB Table for deployed Stacks

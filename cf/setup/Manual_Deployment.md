@@ -10,19 +10,15 @@ If you prefer the Manual Deployment, steps are outlined below.
 #### 3.3.1 Set deployment variables <!-- omit in toc -->
 Open a bash terminal and run lines below to setup some bash variables which will be reused across script installations:
 ```
-AWSDeploymentAccountNumber="AWSACCNUMBER-DEPLOYMENTACCOUNT"
-AWSManagementAccountNumber="AWSACCNUMBER-MANAGEMENTACCOUNT"
 profileDeploymentAccount="PROFILE-ORG-DEPLOYMENTACCOUNT"
-profileManagementAccount="PROFILE-ORG-MANAGEMENTACCOUNT"
 projectResourcePrefix="PROJECT-RESOURCE-PREFIX"
 projectFriendlyName="PROJECT-FRIENDLY-NAME" 
 emailFailedBuildNotifications="EMAIL-ADDR-FAILEDBUILD"
 emailApprovalNotifications="EMAIL-ADDR-APPROVALNOTIFICATIONS"
-environmentType="prod"
 awsregion="AWS-REGION"
 codeCommitRepoName="${projectResourcePrefix}-repo"
 codeCommitBranchName="main"
-s3ArtifactsBucket="${projectResourcePrefix}-${environmentType}-artifacts-lambda"
+s3ArtifactsBucket="${projectResourcePrefix}-artifacts-lambda"
 msTeamsHostName="MSTEAMS-HOSTNAME"
 msTeamsWebHookPath="MSTEAMS-WEBHOOKPATH"
 slackChannelName="SLACK-CHANNELNAME"
@@ -77,14 +73,14 @@ aws cloudformation package --template-file ./cf/setup/02_deployment_artifacts_bu
 
 2. Deploy the CloudFormation script
 ```
-aws cloudformation deploy --template-file "./.build/_02_deployment_artifacts_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-artif-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType ProjectResourcePrefix=$projectResourcePrefix AWSManagementAccountNumber=$AWSManagementAccountNumber
+aws cloudformation deploy --template-file "./.build/_02_deployment_artifacts_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-artif" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
 ```
 
 #### 3.3.5 Get Copy of KMS Key Arn just created <!-- omit in toc -->
 This command will store a local variable of the KMS Key Arn created in previous step
 1. Query CloudFormation Stack for KMS Key Arn
 ```
-get_cmk_command="aws cloudformation describe-stacks --stack-name "${projectResourcePrefix}-setup-artif-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --query \"Stacks[0].Outputs[?OutputKey=='CodePipelineKMSKeyArn'].OutputValue\" --output text"
+get_cmk_command="aws cloudformation describe-stacks --stack-name "${projectResourcePrefix}-setup-artif" --profile $profileDeploymentAccount --region $awsregion --query \"Stacks[0].Outputs[?OutputKey=='CodePipelineKMSKeyArn'].OutputValue\" --output text"
 CodePipelineKMSKeyArn=$(eval $get_cmk_command)
 printf "Got CMK ARN: $CodePipelineKMSKeyArn"
 ```
@@ -97,28 +93,28 @@ aws cloudformation package --template-file ./cf/setup/03_iam_role_codepipeline.y
 
 2. Deploy the CloudFormation script
 ```
-aws cloudformation deploy --template-file "./.build/_03_iam_role_codepipeline.yaml" --stack-name "${projectResourcePrefix}-setup-cp-roles-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix RepoPrefix=$repoPrefix
+aws cloudformation deploy --template-file "./.build/_03_iam_role_codepipeline.yaml" --stack-name "${projectResourcePrefix}-setup-cp-roles" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix RepoPrefix=$repoPrefix
 ```
 
 #### 3.3.7 Deploy IAM Roles and KMS Trust with TARGET Account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
-aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileManagementAccount
+aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
 ```
 
 2. Deploy the CloudFormation script
 ```
-aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
+aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
 ```
 
-# 3.3.8 Deploy StackSet Managed Self-service Roles to MANAGEMENT Account <!-- omit in toc -->
+# 3.3.8 Deploy StackSet Managed Self-service Roles to Deployment Account <!-- omit in toc -->
 1. Compile the CloudFormation script
 ```
-aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileManagementAccount
+aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
 ```
 2. Deploy the CloudFormation script
 ```
-aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
+aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
 ```
 
 # 3.3.9 Setup DynamoDB tables used for Config Management to DEPLOYMENT Account <!-- omit in toc -->
@@ -160,5 +156,5 @@ sam package --template-file ./cf/cicd/stackset_pipeline.yaml --output-template-f
 
 2. Deploy the CloudFormation script
 ```
-sam deploy --template-file "./.build/_stackset_pipeline.yaml" --stack-name "${projectResourcePrefix}-pipeline-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType RepoName=$codeCommitRepoName BranchName=$codeCommitBranchName AWSManagementAccountNumber=$AWSManagementAccountNumber RepoAccountNumber=$AWSDeploymentAccountNumber ProjectResourcePrefix=$projectResourcePrefix EmailFailedBuildNotifications=$emailFailedBuildNotifications EmailApprovalNotifications=$emailApprovalNotifications
+sam deploy --template-file "./.build/_stackset_pipeline.yaml" --stack-name "${projectResourcePrefix}-pipeline" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides RepoName=$codeCommitRepoName BranchName=$codeCommitBranchName ProjectResourcePrefix=$projectResourcePrefix EmailFailedBuildNotifications=$emailFailedBuildNotifications EmailApprovalNotifications=$emailApprovalNotifications
 ```

@@ -21,12 +21,12 @@ Parameters:
     Type: String
     Description: Unique Id used in build to force CloudFormation StackSet to update
   #Project Specific Parameters >>
-  ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn:
+  DeploymentAccountAWSCloudFormationStackSetAdministrationRoleArn:
     Type: String
-    Description: Arn of the Management Account AWS AWSCloudFormationStackSetAdministrationRole
-  ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn:
+    Description: Arn of the Deployment Account AWSCloudFormationStackSetAdministrationRole
+  DeploymentAccountLambdaVPCStackSetInstanceExecutionRoleArn:
     Type: String
-    Description: Arn of the Management Account LambdaVPCInstanceExecutionRole
+    Description: Arn of the Deployment Account AWSLambdaVPCInstanceExecutionRole
   #<< Project Specific Parameters
 
 Resources:
@@ -48,8 +48,8 @@ Resources:
           - Effect: Allow
             Principal:
               AWS:
-                - !Sub "${ManagementAccountAWSCloudFormationStackSetAdministrationRoleArn}"
-                - !Sub "${ManagementAccountLambdaVPCStackSetInstanceExecutionRoleArn}"
+                - !Sub "${DeploymentAccountAWSCloudFormationStackSetAdministrationRoleArn}"
+                - !Sub "${DeploymentAccountLambdaVPCStackSetInstanceExecutionRoleArn}"
             Action:
               - sts:AssumeRole
       ManagedPolicyArns:

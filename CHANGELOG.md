@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.0] - 2022-07-27
+
+### Added
+- Solution now uses StackSet 'Delegated Admin' to manage StackSets from the Deployment Account (on behalf of the management account). This improves security (reduced need to log in to the management account) and make management of StackSets more convenient as you no longer need to keep moving between so many accounts (deployment>management>target acounts).
+- Now supports `Account level targets for service-managed Stack Sets` [https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/account-level-targets.html]. You can now target Individual AWS Accounts and Org Units with various combinations using `AccountFilterType`. 
+- Can now disable specific envs of a stack from deploying by setting optional variable ` env[].enabled:"false" ` in Stacks.json
+
+### Changed
+- Upgraded CodeBuild NodeJS version 14 (from v12)
+- Upgraded AWS CDK to version 2 (from v1)
+
 ## [3.0.0] - 2021-10-06
 
 ### Added

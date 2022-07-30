@@ -1,24 +1,30 @@
-import * as cdk from '@aws-cdk/core';
-import * as cf from '@aws-cdk/aws-cloudformation';
-import { IntegerHeaderValue } from '@aws-sdk/types';
-import { CfnStackSet, Resource } from '@aws-cdk/core';
+import {
+  Stack,
+  StackProps,
+  CfnResource,
+  Tags,
+} from "aws-cdk-lib";
+import * as cf from "aws-cdk-lib/aws-cloudformation";
+import { Construct } from "constructs";
+import { DefaultStackSynthesizer } from 'aws-cdk-lib';
 
-interface MasterStackProps extends cdk.StackProps {
+interface MasterStackProps extends StackProps {
   masterStackName: string;
   nestedStacks: CFStacks.CloudFormationStack[];
-  masterStackParams?: cf.CfnStackSet.ParameterProperty[],
-  environmentType: string,
-  environmentFriendlyName: string,
-  projectFriendlyName: string
+  masterStackParams?: cf.CfnStackSet.ParameterProperty[];
+  environmentType: string;
+  environmentFriendlyName: string;
+  projectFriendlyName: string;
+  synthesizer: DefaultStackSynthesizer
 }
 
 export module CFResources {
   export class CloudFormationResources {
-    resources: CloudFormationResource[]
+    resources: CloudFormationResource[];
   }
   export class CloudFormationResource {
     resourceName: string;
-    resource: cdk.CfnResource;
+    resource: CfnResource;
     dependsOn?: string;
   }
 }
@@ -41,61 +47,73 @@ export module CFStacks {
   }
 }
 
-export async function Cdk_MasterStack_Creator(scope: cdk.Construct, id: string, props: MasterStackProps) {
-  const stack = new cdk.Stack(scope, id, props);
+export async function Cdk_MasterStack_Creator(
+  scope: Construct,
+  id: string,
+  props: MasterStackProps,
+) {
+  const stack = new Stack(scope, id, props);
 
-  const buildGuid = stack.node.tryGetContext('buildGuid') || '123456789';
-  const projectResourcePrefix = stack.node.tryGetContext('projectResourcePrefix') || 'myproject';
+  const buildGuid = stack.node.tryGetContext("buildGuid") || "123456789";
+  const projectResourcePrefix =
+    stack.node.tryGetContext("projectResourcePrefix") || "myproject";
 
   let l_createdResources: CFResources.CloudFormationResources = {
-    resources: []
+    resources: [],
   };
 
   for (let l_nestedStack in props.nestedStacks) {
     let l_stackName: string = props.nestedStacks[l_nestedStack].stackName;
 
     let l_outputFileName: string = "";
-    if (props.nestedStacks[l_nestedStack].type == "GENERATED_CDK_STACK" || props.nestedStacks[l_nestedStack].type == "GENERATED_RDK_STACK") {
+    if (
+      props.nestedStacks[l_nestedStack].type == "GENERATED_CDK_STACK" ||
+      props.nestedStacks[l_nestedStack].type == "GENERATED_RDK_STACK"
+    ) {
       l_outputFileName = `${props.nestedStacks[l_nestedStack].stackName}.template.json`;
     } else {
       l_outputFileName = `${props.nestedStacks[l_nestedStack].templateFile}`;
     }
-    let l_timeoutInMinutes: number = props.nestedStacks[l_nestedStack].timeoutInMinutes || 30;
-    let templateUrl: string = `https://${projectResourcePrefix}-main-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${l_outputFileName}`;
+    let l_timeoutInMinutes: number =
+      props.nestedStacks[l_nestedStack].timeoutInMinutes || 30;
+    let templateUrl: string = `https://${projectResourcePrefix}-artifacts-codebuild.s3.amazonaws.com/${buildGuid}/${l_outputFileName}`;
 
-    let l_param = props.nestedStacks[l_nestedStack].params || {}
+    let l_param = props.nestedStacks[l_nestedStack].params || {};
 
     let l_stack = new cf.CfnStack(stack, l_stackName, {
       templateUrl: templateUrl,
       timeoutInMinutes: l_timeoutInMinutes,
-      parameters: l_param
+      parameters: l_param,
     });
 
-    let l_purpose :string = "DevSecOps Orchestration Stack";
-    cdk.Tags.of(l_stack).add('Name', l_stackName);
-    cdk.Tags.of(l_stack).add('Project', props.projectFriendlyName);
-    cdk.Tags.of(l_stack).add('Purpose', l_purpose);
-    cdk.Tags.of(l_stack).add('Environment', props.environmentFriendlyName);
+    let l_purpose: string = "DevSecOps Orchestration Stack";
+    Tags.of(l_stack).add("Name", l_stackName);
+    Tags.of(l_stack).add("Project", props.projectFriendlyName);
+    Tags.of(l_stack).add("Purpose", l_purpose);
+    Tags.of(l_stack).add("Environment", props.environmentFriendlyName);
 
-
-    let l_newResource :CFResources.CloudFormationResource = {
+    let l_newResource: CFResources.CloudFormationResource = {
       resourceName: l_stackName,
       dependsOn: props.nestedStacks[l_nestedStack].dependsOn || undefined,
-      resource: l_stack
-    }
-    l_createdResources.resources?.push(l_newResource)
+      resource: l_stack,
+    };
+    l_createdResources.resources?.push(l_newResource);
   }
 
   //With all stacks created, now add in any dependancies
-  for(let l_resource in l_createdResources.resources){
+  for (let l_resource in l_createdResources.resources) {
     let l_resourceName = l_createdResources.resources[l_resource].resourceName;
-    
-    if(l_createdResources.resources[l_resource].dependsOn || "" !== ""){
+
+    if (l_createdResources.resources[l_resource].dependsOn || "" !== "") {
       //Do a lookup to find the dependant resource:
-      let l_dependantResource = stack.node.findChild(l_resourceName)
-      let l_dependantOnResource = stack.node.findChild(l_createdResources.resources[l_resource].dependsOn || "");
+      let l_dependantResource = stack.node.findChild(l_resourceName);
+      let l_dependantOnResource = stack.node.findChild(
+        l_createdResources.resources[l_resource].dependsOn || ""
+      );
       l_dependantResource.node.addDependency(l_dependantOnResource);
-      console.log(` - dependancy added on ${l_resourceName} to ${l_createdResources.resources[l_resource].dependsOn}`);
+      console.log(
+        ` - dependancy added on ${l_resourceName} to ${l_createdResources.resources[l_resource].dependsOn}`
+      );
     }
   }
 

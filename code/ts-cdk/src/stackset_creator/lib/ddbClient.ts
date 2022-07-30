@@ -1,5 +1,5 @@
+import * as cdk from 'aws-cdk-lib';
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import * as cdk from '@aws-cdk/core';
 
 // Create an Amazon DynamoDB service client object.
 const {fromIni} = require("@aws-sdk/credential-provider-ini");

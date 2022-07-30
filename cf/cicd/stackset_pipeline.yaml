@@ -13,17 +13,6 @@ Parameters:
     Default: PROJECT-RESOURCE-PREFIX
     Description: Enter a unique prefix for the project resources.
 
-  EnvironmentType:
-    Type: String
-    AllowedValues:
-      - main
-    Description: Enter destination environment type 
-
-  RepoAccountNumber:
-    Description: "The AWS Account Number of the account which hosts the CodeCommit Source Control"
-    Type: String
-    Default: '583236045321'
-
   RepoName:
     Description: "Name of the GIT Repository to clone"
     Type: String
@@ -37,11 +26,6 @@ Parameters:
   BranchName:
     Description: "The git branch to operate from (i.e. dev, prod, uat, main)"
     Type: String
-
-  AWSManagementAccountNumber:
-    Description: "The AWS Account Number of the account to perform the deployment into"
-    Type: String
-    Default: '33333322222'
     
   CodeBuildImage:
     Type: String
@@ -183,7 +167,7 @@ Resources:
               Action:
                 - "sts:AssumeRole"
               Resource: 
-                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-ca-role-${ProjectResourcePrefix}"
       -
         PolicyName: "assume-role-policy-repo-account"
         PolicyDocument:
@@ -194,26 +178,26 @@ Resources:
               Action:
                 - "sts:AssumeRole"
               Resource: 
-                !Sub "arn:aws:iam::${RepoAccountNumber}:role/cp-cc-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cc-role-${ProjectResourcePrefix}"
 
   CodePipelineApprovalSNSTopic:
     Type: AWS::SNS::Topic
     DependsOn: CodePipeLineRole
     Properties:
-      TopicName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-pipeline-approval-topic"
-      DisplayName: !Sub "${ProjectResourcePrefix}-${EnvironmentType} Approval Request"
+      TopicName: !Sub "${ProjectResourcePrefix}-pipeline-approval-topic"
+      DisplayName: !Sub "${ProjectResourcePrefix} Approval Request"
   
   CodePipelineFailureSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-pipeline-failure-topic"
-      DisplayName: !Sub "${ProjectResourcePrefix}-${EnvironmentType} Execution Failed"
+      TopicName: !Sub "${ProjectResourcePrefix}-pipeline-failure-topic"
+      DisplayName: !Sub "${ProjectResourcePrefix} Execution Failed"
   
   CodePipelineSuccessSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-pipeline-success-topic"
-      DisplayName: !Sub "${ProjectResourcePrefix}-${EnvironmentType} Execution Succeeded"
+      TopicName: !Sub "${ProjectResourcePrefix}-pipeline-success-topic"
+      DisplayName: !Sub "${ProjectResourcePrefix} Execution Succeeded"
 
   CodePipelineApprovalSNSSubscriptionEmail:
     Type: AWS::SNS::Subscription
@@ -281,7 +265,7 @@ Resources:
       ServiceRole: !Ref CodeBuildRole
       EncryptionKey:
         Fn::ImportValue:
-          !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+          !Sub "${ProjectResourcePrefix}-cp-kms-key"
       Source:
         Type: CODEPIPELINE
         BuildSpec: ./cf/cicd/buildspec_test.yaml
@@ -294,7 +278,7 @@ Resources:
         EnvironmentVariables:
           - Name: CODEPIPELINE_BUCKET
             Value:
-              !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+              !Sub "${ProjectResourcePrefix}-artifacts-codebuild"
           - Name: RDK_RULES_S3_BUCKET
             Value:
               !Sub "${ProjectResourcePrefix}-artifacts-rdk-lambda-test"
@@ -320,7 +304,7 @@ Resources:
           - Name: KMS_KEY_ARN
             Value:
               Fn::ImportValue:
-                !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+                !Sub "${ProjectResourcePrefix}-cp-kms-key"
       TimeoutInMinutes: 15
 
   CloudFormationCodeBuildProjectProd:
@@ -331,7 +315,7 @@ Resources:
       ServiceRole: !Ref CodeBuildRole
       EncryptionKey:
         Fn::ImportValue:
-          !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+          !Sub "${ProjectResourcePrefix}-cp-kms-key"
       Source:
         Type: CODEPIPELINE
         BuildSpec: ./cf/cicd/buildspec_prod.yaml
@@ -344,7 +328,7 @@ Resources:
         EnvironmentVariables:
           - Name: CODEPIPELINE_BUCKET
             Value:
-              !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+              !Sub "${ProjectResourcePrefix}-artifacts-codebuild"
           - Name: RDK_RULES_S3_BUCKET
             Value:
               !Sub "${ProjectResourcePrefix}-artifacts-rdk-lambda-prod"
@@ -370,14 +354,14 @@ Resources:
           - Name: KMS_KEY_ARN
             Value:
               Fn::ImportValue:
-                !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+                !Sub "${ProjectResourcePrefix}-cp-kms-key"
       TimeoutInMinutes: 15
 
   AppPipeline:
     Type: "AWS::CodePipeline::Pipeline"
     DependsOn: CloudFormationCodeBuildProjectProd
     Properties:
-      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-codepipeline"
+      Name: !Sub "${ProjectResourcePrefix}-codepipeline"
       RoleArn: !GetAtt CodePipeLineRole.Arn
       Stages:
         -
@@ -393,7 +377,7 @@ Resources:
               OutputArtifacts:
                 -
                   Name: SourceCode
-              RoleArn: !Sub "arn:aws:iam::${RepoAccountNumber}:role/cp-cc-role-${ProjectResourcePrefix}-${EnvironmentType}"
+              RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cc-role-${ProjectResourcePrefix}"
               Namespace: "SourceVariables"
               Configuration:
                 PollForSourceChanges: true
@@ -425,7 +409,7 @@ Resources:
             -
               Name: CreateChangeSetTestAccounts
               RoleArn: 
-                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-ca-role-${ProjectResourcePrefix}"
               InputArtifacts:
                 -
                   Name: DeployableArtifactInitial
@@ -439,14 +423,14 @@ Resources:
                 Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
                 ChangeSetName: !Sub '${ProjectResourcePrefix}-test-changeset'
                 RoleArn: 
-                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                  !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cf-role-${ProjectResourcePrefix}"
                 StackName: !Sub '${ProjectResourcePrefix}-test'
                 TemplatePath: !Sub 'DeployableArtifactInitial::MasterStack-test.template.json'
               RunOrder: 1
             -
               Name: ExecuteChangeSetTestAccounts
               RoleArn: 
-                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-ca-role-${ProjectResourcePrefix}"
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -457,7 +441,7 @@ Resources:
                 ChangeSetName: !Sub '${ProjectResourcePrefix}-test-changeset'
                 StackName: !Sub '${ProjectResourcePrefix}-test'
                 RoleArn: 
-                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                  !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cf-role-${ProjectResourcePrefix}"
               RunOrder: 2
         - 
           Name: Manual-QA-Approval
@@ -507,7 +491,7 @@ Resources:
             -
               Name: CreateChangeSetProdAccounts
               RoleArn: 
-                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-ca-role-${ProjectResourcePrefix}"
               InputArtifacts:
                 -
                   Name: DeployableArtifactInitial
@@ -521,14 +505,14 @@ Resources:
                 Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
                 ChangeSetName: !Sub '${ProjectResourcePrefix}-prod-changeset'
                 RoleArn: 
-                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                  !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cf-role-${ProjectResourcePrefix}"
                 StackName: !Sub '${ProjectResourcePrefix}-prod'
                 TemplatePath: !Sub 'DeployableArtifactInitial::MasterStack-prod.template.json'
               RunOrder: 1
             -
               Name: ExecuteChangeSetProdAccounts
               RoleArn: 
-                !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-ca-role-${ProjectResourcePrefix}"
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -539,24 +523,24 @@ Resources:
                 ChangeSetName: !Sub '${ProjectResourcePrefix}-prod-changeset'
                 StackName: !Sub '${ProjectResourcePrefix}-prod'
                 RoleArn: 
-                  !Sub "arn:aws:iam::${AWSManagementAccountNumber}:role/cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+                  !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cf-role-${ProjectResourcePrefix}"
               RunOrder: 2
 
       ArtifactStore:
         Type: S3
         Location:
-            !Sub "${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+            !Sub "${ProjectResourcePrefix}-artifacts-codebuild"
         EncryptionKey:
           Id:
             Fn::ImportValue:
-              !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+              !Sub "${ProjectResourcePrefix}-cp-kms-key"
           Type: KMS
 
   CloudWatchCodePipelineFailureRule:
     Type: AWS::Events::Rule
     DependsOn: AppPipeline
     Properties:
-      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-frule"
+      Name: !Sub "${ProjectResourcePrefix}-cp-frule"
       EventPattern:
         source: 
           - "aws.codepipeline"
@@ -577,7 +561,7 @@ Resources:
     Type: AWS::Events::Rule
     DependsOn: AppPipeline
     Properties:
-      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-startedrule"
+      Name: !Sub "${ProjectResourcePrefix}-cp-startedrule"
       EventPattern:
         source: 
           - "aws.codepipeline"
@@ -600,7 +584,7 @@ Resources:
     Type: AWS::Events::Rule
     DependsOn: AppPipeline
     Properties:
-      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-test-ssrule"
+      Name: !Sub "${ProjectResourcePrefix}-cp-test-ssrule"
       EventPattern:
         source: 
           - "aws.codepipeline"
@@ -623,7 +607,7 @@ Resources:
     Type: AWS::Events::Rule
     DependsOn: AppPipeline
     Properties:
-      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-approv-ssrule"
+      Name: !Sub "${ProjectResourcePrefix}-cp-approv-ssrule"
       EventPattern:
         source: 
           - "aws.codepipeline"
@@ -646,7 +630,7 @@ Resources:
     Type: AWS::Events::Rule
     DependsOn: AppPipeline
     Properties:
-      Name: !Sub "${ProjectResourcePrefix}-${EnvironmentType}-cp-prod-ssrule"
+      Name: !Sub "${ProjectResourcePrefix}-cp-prod-ssrule"
       EventPattern:
         source: 
           - "aws.codepipeline"
@@ -681,7 +665,7 @@ Resources:
         Variables:
           PROJECT_NAME: !Sub "${ProjectFriendlyName}"
           PROJECT_PREFIX: !Ref ProjectResourcePrefix
-          MASTER_DEPLOYMENT_ACCOUNT: !Ref AWSManagementAccountNumber
+          MASTER_DEPLOYMENT_ACCOUNT: !Sub "${AWS::AccountId}"
       Tags:
         Project: !Sub "${ProjectFriendlyName}"
         Purpose: "MS Teams notifications for CodePipeline"
@@ -710,7 +694,7 @@ Resources:
         Variables:
           PROJECT_NAME: !Sub "${ProjectFriendlyName}"
           PROJECT_PREFIX: !Ref ProjectResourcePrefix
-          MASTER_DEPLOYMENT_ACCOUNT: !Ref AWSManagementAccountNumber
+          MASTER_DEPLOYMENT_ACCOUNT: !Sub "${AWS::AccountId}"
       Tags:
         Project: !Sub "${ProjectFriendlyName}"
         Purpose: "Slack notifications for CodePipeline"
@@ -785,10 +769,6 @@ Outputs:
   ProjectFriendlyName:
     Description: "The user-friendly name given to project/application"
     Value: !Ref ProjectFriendlyName
-  
-  EnvironmentType:
-    Description: "The destination environment type of this pipeline for the project/application"
-    Value: !Ref EnvironmentType
 
   CodePipelineJob:
     Description: "Name of the code pipeline job created"
@@ -798,4 +778,4 @@ Outputs:
     Description: "The KMS Arn used for Cross-account deployment of this pipeline"
     Value:
       Fn::ImportValue:
-        !Sub "${ProjectResourcePrefix}${EnvironmentType}-cp-kms-key"
+        !Sub "${ProjectResourcePrefix}-cp-kms-key"

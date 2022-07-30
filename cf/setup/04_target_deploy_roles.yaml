@@ -11,18 +11,6 @@ Parameters:
     Default: PROJECT-RESOURCE-PREFIX
     Description: Enter a unique prefix for the project resources.
 
-  EnvironmentType:
-    Type: String
-    AllowedValues:
-      - main
-      - dev
-    Description: Enter destination environment type 
-
-  AWSDeploymentAccountNumber:
-    Description: AWS Account Number for account running CodePipeline DEPLOYMENT Account
-    Type: String
-    Default: '011111122222'
-
   KMSKeyArn:
     Description: ARN of the unique Project KMS key created in the DEPLOYMENT Account
     Type: String
@@ -34,7 +22,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: 
-        !Sub "cp-ca-role-${ProjectResourcePrefix}-${EnvironmentType}"
+        !Sub "cp-ca-role-${ProjectResourcePrefix}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -42,7 +30,7 @@ Resources:
             Effect: Allow
             Principal:
               AWS:
-                - !Ref AWSDeploymentAccountNumber
+                - !Sub "${AWS::AccountId}"
             Action:
               - sts:AssumeRole
       Path: /
@@ -59,6 +47,22 @@ Resources:
               - cloudformation:*
               - s3:*
               - iam:PassRole
+              - organizations:ListPoliciesForTarget
+              - organizations:ListRoots
+              - organizations:ListTargetsForPolicy
+              - organizations:ListTagsForResource
+              - organizations:ListDelegatedServicesForAccount
+              - organizations:ListAWSServiceAccessForOrganization
+              - organizations:ListChildren
+              - organizations:ListPolicies
+              - organizations:ListAccountsForParent
+              - organizations:ListHandshakesForOrganization
+              - organizations:ListDelegatedAdministrators
+              - organizations:ListHandshakesForAccount
+              - organizations:ListAccounts
+              - organizations:ListCreateAccountStatus
+              - organizations:ListParents
+              - organizations:ListOrganizationalUnitsForParent
             Resource: "*"
           -
             Effect: Allow
@@ -78,7 +82,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: 
-        !Sub "cp-cf-role-${ProjectResourcePrefix}-${EnvironmentType}"
+        !Sub "cp-cf-role-${ProjectResourcePrefix}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -127,6 +131,22 @@ Resources:
               - kms:*
               - servicecatalog:*
               - config:*
+              - organizations:ListPoliciesForTarget
+              - organizations:ListRoots
+              - organizations:ListTargetsForPolicy
+              - organizations:ListTagsForResource
+              - organizations:ListDelegatedServicesForAccount
+              - organizations:ListAWSServiceAccessForOrganization
+              - organizations:ListChildren
+              - organizations:ListPolicies
+              - organizations:ListAccountsForParent
+              - organizations:ListHandshakesForOrganization
+              - organizations:ListDelegatedAdministrators
+              - organizations:ListHandshakesForAccount
+              - organizations:ListAccounts
+              - organizations:ListCreateAccountStatus
+              - organizations:ListParents
+              - organizations:ListOrganizationalUnitsForParent
             Resource: "*"
           -
             Effect: Allow
@@ -136,8 +156,8 @@ Resources:
               - s3:GetObject
               - s3:ListBucket
             Resource:
-              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild/*"
-              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-${EnvironmentType}-artifacts-codebuild"
+              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-artifacts-codebuild/*"
+              - !Sub "arn:aws:s3:::${ProjectResourcePrefix}-artifacts-codebuild"
 
       Roles:
         -

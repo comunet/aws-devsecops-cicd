@@ -21,12 +21,7 @@ Parameters:
     Type: String
     Description: Unique Id used in build to force CloudFormation StackSet to update
   #Project Specific Parameters >>
-  ExampleParam1:
-    Type: String
-    Description: Sample stack parameter
-  ExampleParam2:
-    Type: String
-    Description: Sample stack parameter
+
   #<< Project Specific Parameters
 
 Resources:

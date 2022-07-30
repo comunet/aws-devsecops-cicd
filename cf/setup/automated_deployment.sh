@@ -45,19 +45,15 @@ if [ "$GROUPCHATINTEGRATION" != "none" ] && [ "$GROUPCHATINTEGRATION" != "slack"
 fi
 
 printf "\n[1 of 12] setting variables\n"
-AWSDeploymentAccountNumber="AWSACCNUMBER-DEPLOYMENTACCOUNT"
-AWSManagementAccountNumber="AWSACCNUMBER-MANAGEMENTACCOUNT"
 profileDeploymentAccount="PROFILE-ORG-DEPLOYMENTACCOUNT"
-profileManagementAccount="PROFILE-ORG-MANAGEMENTACCOUNT"
 projectResourcePrefix="PROJECT-RESOURCE-PREFIX"
 projectFriendlyName="PROJECT-FRIENDLY-NAME" 
 emailFailedBuildNotifications="EMAIL-ADDR-FAILEDBUILD"
 emailApprovalNotifications="EMAIL-ADDR-APPROVALNOTIFICATIONS"
-environmentType="main"
 awsregion="AWS-REGION"
 codeCommitRepoName="${projectResourcePrefix}-repo"
 codeCommitBranchName="main"
-s3ArtifactsBucket="${projectResourcePrefix}-${environmentType}-artifacts-lambda"
+s3ArtifactsBucket="${projectResourcePrefix}-artifacts-lambda"
 
 if [ "$GROUPCHATINTEGRATION" == "slack" ] || [ "$GROUPCHATINTEGRATION" == "msteams" ]
 then
@@ -92,47 +88,42 @@ aws cloudformation deploy --template-file ./.build/_01_create_codecommit_repo.ya
 
 printf "\n[4 of 12] deploy the S3 Bucket for Build Artifacts with Policy + KMS Key to DEPLOYMENT Account\n"
 aws cloudformation package --template-file ./cf/setup/02_deployment_artifacts_bucket.yaml --output-template-file "./.build/_02_deployment_artifacts_bucket.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
-aws cloudformation deploy --template-file "./.build/_02_deployment_artifacts_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-artif-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType ProjectResourcePrefix=$projectResourcePrefix AWSManagementAccountNumber=$AWSManagementAccountNumber
+aws cloudformation deploy --template-file "./.build/_02_deployment_artifacts_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-artif" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
 
 printf "\n[5 of 12] get Copy of KMS Key Arn just created\n"
 #This command will copy to a local variable the KMS Key Arn for step 3.2
-get_cmk_command="aws cloudformation describe-stacks --stack-name "${projectResourcePrefix}-setup-artif-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --query \"Stacks[0].Outputs[?OutputKey=='CodePipelineKMSKeyArn'].OutputValue\" --output text"
+get_cmk_command="aws cloudformation describe-stacks --stack-name "${projectResourcePrefix}-setup-artif" --profile $profileDeploymentAccount --region $awsregion --query \"Stacks[0].Outputs[?OutputKey=='CodePipelineKMSKeyArn'].OutputValue\" --output text"
 CodePipelineKMSKeyArn=$(eval $get_cmk_command)
 printf " > got CMK ARN: $CodePipelineKMSKeyArn"
 
-
 printf "\n[6 of 12] setup IAM Roles for CodePipeline to access DEPLOYMENT account\n"
 aws cloudformation package --template-file ./cf/setup/03_iam_role_codepipeline.yaml --output-template-file "./.build/_03_iam_role_codepipeline.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
-aws cloudformation deploy --template-file "./.build/_03_iam_role_codepipeline.yaml" --stack-name "${projectResourcePrefix}-setup-cp-roles-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix RepoPrefix=$repoPrefix
+aws cloudformation deploy --template-file "./.build/_03_iam_role_codepipeline.yaml" --stack-name "${projectResourcePrefix}-setup-cp-roles" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix RepoPrefix=$repoPrefix
 
-printf "\n[7 of 12] deploy IAM Roles and KMS Trust with MANAGEMENT Account\n"
-aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileManagementAccount
-aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles-${environmentType}" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
+printf "\n[7 of 12] deploy IAM Roles and KMS Trust with  Account\n"
+aws cloudformation package --template-file ./cf/setup/04_target_deploy_roles.yaml --output-template-file "./.build/_04_target_deploy_roles.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
+aws cloudformation deploy --template-file "./.build/_04_target_deploy_roles.yaml" --stack-name "${projectResourcePrefix}-setup-deployroles" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides KMSKeyArn=$CodePipelineKMSKeyArn ProjectResourcePrefix=$projectResourcePrefix
 
-
-printf "\n[8 of 12] deploy StackSet Managed Self-service Roles to MANAGEMENT Account\n"
-aws cloudformation package --template-file ./cf/setup/05_orgs_stackset_selfmanaged_roles.yaml --output-template-file "./.build/_05_orgs_stackset_selfmanaged_roles.yaml" --s3-bucket NOTUSED --profile $profileManagementAccount
-aws cloudformation deploy --template-file "./.build/_05_orgs_stackset_selfmanaged_roles.yaml" --stack-name "${projectResourcePrefix}-setup-orgmngselfservroles" --profile $profileManagementAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides AWSDeploymentAccountNumber=$AWSDeploymentAccountNumber ProjectResourcePrefix=$projectResourcePrefix
-
+printf "\n[8 of 12] deploy StackSet Managed Self-service Roles to Deployment Account\n"
+aws cloudformation package --template-file ./cf/setup/05_orgs_stackset_selfmanaged_roles.yaml --output-template-file "./.build/_05_orgs_stackset_selfmanaged_roles.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
+aws cloudformation deploy --template-file "./.build/_05_orgs_stackset_selfmanaged_roles.yaml" --stack-name "${projectResourcePrefix}-setup-orgmngselfservroles" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
 
 printf "\n[9 of 12] deploy Dynamo DB DevSecOps Configuration Tables to DEPLOYMENT Account\n"
 aws cloudformation package --template-file ./cf/setup/06_dynamo_db.yaml --output-template-file "./.build/_06_dynamo_db.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
 aws cloudformation deploy --template-file "./.build/_06_dynamo_db.yaml" --stack-name "${projectResourcePrefix}-setup-dyndb" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
 
-
 printf "\n[10 of 12] compile Lambda Extension for Notifications Add-ons (Slack and MS Teams)"
 # install node-lambda (if not already done)
-npm install node-lambda -g
+# npm install node-lambda -g
 ./cf/cicd/build_lambdas.sh
 
 printf "\n [11 of 12] Setup RDK Lambda Role and rdk deploy bucket in DEPLOYMENT account\n"
 aws cloudformation package --template-file ./cf/setup/07_setup_RDK_role_and_deploy_bucket.yaml --output-template-file "./.build/07_setup_RDK_role_and_deploy_bucket.yaml" --s3-bucket NOTUSED --profile $profileDeploymentAccount
 aws cloudformation deploy --template-file "./.build/07_setup_RDK_role_and_deploy_bucket.yaml" --stack-name "${projectResourcePrefix}-setup-rdk" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ProjectResourcePrefix=$projectResourcePrefix
 
-
 printf "\n[12 of 12] setup CI/CD Infrastructure Pipeline (CodePipeline) to DEPLOYMENT account\n"
 sam.cmd package --template-file ./cf/cicd/stackset_pipeline.yaml --output-template-file "./.build/_stackset_pipeline.yaml" --s3-bucket $s3ArtifactsBucket --profile $profileDeploymentAccount --region $awsregion
-sam.cmd deploy --template-file "./.build/_stackset_pipeline.yaml" --stack-name "${projectResourcePrefix}-pipeline-${environmentType}" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentType=$environmentType RepoName=$codeCommitRepoName BranchName=$codeCommitBranchName AWSManagementAccountNumber=$AWSManagementAccountNumber RepoAccountNumber=$AWSDeploymentAccountNumber ProjectResourcePrefix=$projectResourcePrefix EmailFailedBuildNotifications=$emailFailedBuildNotifications EmailApprovalNotifications=$emailApprovalNotifications GroupChatIntegration=$GROUPCHATINTEGRATION
+sam.cmd deploy --template-file "./.build/_stackset_pipeline.yaml" --stack-name "${projectResourcePrefix}-pipeline" --profile $profileDeploymentAccount --region $awsregion --capabilities CAPABILITY_NAMED_IAM --parameter-overrides RepoName=$codeCommitRepoName BranchName=$codeCommitBranchName ProjectResourcePrefix=$projectResourcePrefix EmailFailedBuildNotifications=$emailFailedBuildNotifications EmailApprovalNotifications=$emailApprovalNotifications GroupChatIntegration=$GROUPCHATINTEGRATION
 
 printf "\n**Deployment complete!**\n\nNext Steps: now setup your local GIT repo, via a CLONE of the new CodeCommit repo created in deployment account.\nCopy all contents of this project to local mapping and push to branch to kick-off CI/CD!\n"
 exit 0

@@ -41,6 +41,15 @@ Resources:
                   - sts:AssumeRole
                 Resource:
                   - "arn:aws:iam::*:role/AWSCloudFormationStackSetAdministrationRole"
+        - PolicyName: AssumeRole-AWSCloudFormationStackSetExecutionRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - "arn:aws:iam::*:role/AWSCloudFormationStackSetExecutionRole"
         - PolicyName: Logs
           PolicyDocument:
             Version: "2012-10-17"
@@ -50,7 +59,7 @@ Resources:
                   - logs:*
                 Resource: "*"
 
-  # IAM Role for CloudFormation StackSet Administration in Master account
+  # IAM Role for CloudFormation StackSet Administration in Deployment account
   AWSCloudFormationStackSetAdministrationRole:
     Metadata:
       cfn_nag:
@@ -73,12 +82,12 @@ Resources:
           - Effect: Allow
             Principal:
               AWS:
-                - !GetAtt [LambdaVPCStackSetInstanceExecutionRole, Arn]
+                - !GetAtt LambdaVPCStackSetInstanceExecutionRole.Arn
             Action:
               - sts:AssumeRole          
       Path: /
       Policies:
-        - PolicyName: AssumeRole-AWSCloudFormationStackSetExecutionRole
+        - PolicyName: AssumeRole-AWSCloudFormationStackSetExecutionRolePolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -98,13 +107,13 @@ Resources:
 
 Outputs:
   AWSCloudFormationStackSetAdministrationRoleArn:
-    Description: Arn of the Management Account AWS AWSCloudFormationStackSetAdministrationRole
-    Value: !GetAtt [AWSCloudFormationStackSetAdministrationRole,Arn]
+    Description: Arn of the Deployment Account AWS AWSCloudFormationStackSetAdministrationRole
+    Value: !GetAtt AWSCloudFormationStackSetAdministrationRole.Arn
     Export:
       Name: !Sub 'AWSCloudFormationStackSetAdministrationRoleArn'
 
   LambdaVPCStackSetInstanceExecutionRoleArn:
-    Description: Arn of the Management Account LambdaVPCInstanceExecutionRole
-    Value: !GetAtt [LambdaVPCStackSetInstanceExecutionRole,Arn]
+    Description: Arn of the Deployment Account LambdaVPCInstanceExecutionRole
+    Value: !GetAtt LambdaVPCStackSetInstanceExecutionRole.Arn
     Export:
       Name: !Sub 'LambdaVPCStackSetInstanceExecutionRoleArn'

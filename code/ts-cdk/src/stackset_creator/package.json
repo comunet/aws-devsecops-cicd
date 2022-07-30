@@ -1,8 +1,8 @@
 {
-  "name": "cdk_index",
-  "version": "0.1.0",
+  "name": "cdk",
+  "version": "2.0.0",
   "bin": {
-    "cdk_index": "bin/cdk_index.js"
+    "cdk": "bin/cdk.js"
   },
   "scripts": {
     "build": "tsc",
@@ -11,22 +11,22 @@
     "cdk": "cdk"
   },
   "devDependencies": {
-    "@aws-cdk/assert": "1.116.0",
-    "@types/jest": "^26.0.10",
+    "@types/jest": "^27.5.2",
     "@types/node": "10.17.27",
-    "jest": "^26.4.2",
-    "ts-jest": "^26.2.0",
-    "aws-cdk": "1.116.0",
-    "ts-node": "^9.0.0",
+    "@types/prettier": "2.6.0",
+    "aws-cdk": "2.33.0",
+    "jest": "^27.5.1",
+    "ts-jest": "^27.1.4",
+    "ts-node": "^10.8.1",
     "typescript": "~3.9.7"
   },
   "dependencies": {
-    "@aws-cdk/aws-cloudformation": "^1.116.0",
-    "@aws-cdk/core": "1.116.0",
+    "aws-cdk-lib": "2.34.2",
+    "constructs": "^10.0.0",
+    "source-map-support": "^0.5.16",
     "@aws-sdk/types": "^3.3.0",
     "@aws-sdk/client-dynamodb": "^3.3.0",
     "@aws-sdk/lib-dynamodb": "^3.3.0",
-    "@aws-sdk/credential-provider-ini": "^3.3.0",
-    "source-map-support": "^0.5.16"
+    "@aws-sdk/credential-provider-ini": "^3.3.0"
   }
 }

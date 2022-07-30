@@ -1,0 +1,63 @@
+[
+  {
+    "groupCode": "BASELINE-ORG-UNITS-PROD",
+    "targetRegions": [
+      {
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX1",
+          "ou-XXXX-XXXXXXX2",
+          "ou-XXXX-XXXXXXX3"
+        ]
+      }
+    ]
+  },
+  {
+    "groupCode": "TEST-ORG-UNITS",
+    "targetRegions": [
+      {
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX4"
+        ]
+      }
+    ]
+  },
+  {
+    "groupCode": "TEST-ACCOUNTDEPLOY-ONLY",
+    "targetRegions": [
+      {
+        "accountIds": [
+          "000000000000"
+        ],
+        "accountFilterType": "INTERSECTION"
+      }
+    ]
+  },
+  {
+    "groupCode": "TEST-ACCOUNT-AND-ORGUNIT",
+    "targetRegions": [
+      {
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX4"
+        ],
+        "accountIds": [
+          "000000000000"
+        ],
+        "accountFilterType": "UNION"
+      }
+    ]
+  },
+  {
+    "groupCode": "TEST-ORGUNIT-MINUS-ACCOUNT",
+    "targetRegions": [
+      {
+        "orgUnitIds": [
+          "ou-XXXX-XXXXXXX4"
+        ],
+        "accountIds": [
+          "000000000000"
+        ],
+        "accountFilterType": "DIFFERENCE"
+      }
+    ]
+  }
+]
