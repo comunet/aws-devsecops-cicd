@@ -7,6 +7,9 @@ SLACKCHANNELNAME=""                       # Slack Channel Name
 SLACKWEBHOOKPATH=""                       # Slack Web Hook Path
 MSTEAMSHOSTNAME=""                        # MS Teams Host Name
 MSTEAMSWEBHOOKPATH=""                     # MS Teams Web Hook Path
+
+SAM_CLI_TELEMETRY=0
+
 usage() {           
     echo "options:"
     echo "i     Group Chat Integration - Disabled (-i none), Slack (-i slack), MS Teams (-i msteams)"

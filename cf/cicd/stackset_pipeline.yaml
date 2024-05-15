@@ -380,7 +380,7 @@ Resources:
               RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/cp-cc-role-${ProjectResourcePrefix}"
               Namespace: "SourceVariables"
               Configuration:
-                PollForSourceChanges: true
+                PollForSourceChanges: false
                 BranchName: !Ref BranchName
                 RepositoryName: !Ref RepoName
               RunOrder: 1
@@ -654,8 +654,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
-      Runtime: nodejs14.x
-      CodeUri: ../../code/nodejs/src/sns_to_msteams/.build/sns_to_msteams.zip
+      Runtime: nodejs18.x
+      CodeUri: ../../code/nodejs/src/sns_to_msteams/package/sns_to_msteams.zip
       Description: CodePipeline SNS notifications to MS Teams
       MemorySize: 128
       Timeout: 30
@@ -683,8 +683,8 @@ Resources:
     Condition: IsSlackIntegrationEnabled
     Properties:
       Handler: index.handler
-      Runtime: nodejs14.x
-      CodeUri: ../../code/nodejs/src/sns_to_slack/.build/sns_to_slack.zip
+      Runtime: nodejs18.x
+      CodeUri: ../../code/nodejs/src/sns_to_slack/package/sns_to_slack.zip
       Description: CodePipeline SNS notifications to Slack
       MemorySize: 128
       Timeout: 30
@@ -760,6 +760,35 @@ Resources:
       Protocol: lambda
       Endpoint: !GetAtt SNStoSlackFunction.Arn
       TopicArn: !Ref CodePipelineFailureSNSTopic
+
+  CodeCommitEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - !Join [ '', 
+              [ 'arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', 
+                !Ref RepoName
+              ]
+            ]
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Sub "${BranchName}"
+      Targets:
+        -
+          Arn: 
+            !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref AppPipeline ] ]
+          RoleArn: !GetAtt EventBridgeRole.Arn
+          Id: !Sub "er-cp-${ProjectResourcePrefix}-${EnvironmentType}"
 
 Outputs:
   ProjectResourcePrefix:
