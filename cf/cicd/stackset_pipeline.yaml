@@ -30,7 +30,7 @@ Parameters:
   CodeBuildImage:
     Type: String
     Description: The docker repo path to build image
-    Default: aws/codebuild/standard:5.0
+    Default: aws/codebuild/standard:7.0
 
   EmailFailedBuildNotifications:
     Type: String
