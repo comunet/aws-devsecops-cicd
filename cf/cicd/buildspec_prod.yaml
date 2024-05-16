@@ -3,13 +3,10 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodejs: 14
+      nodejs: 18
     commands: 
       - orignpmversion=$(npm -v)
-      - echo "original npm version:" $orignpmversion
-      - npm i npm@latest -g
-      - currentnpmversion=$(npm -v)
-      - echo "current npm version:" $currentnpmversion
+      - echo "current npm version:" $orignpmversion
       - pip install rdk
   pre_build:
     commands:
