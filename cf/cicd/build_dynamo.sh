@@ -7,6 +7,7 @@ usage() {
     echo "options:"
     echo "p     The AWS Credentials Profile (used for running script locally)"
     echo "r     The Resource Prefix for resource names"
+    echo "y     The AWS Region for deployed management resources"
     echo "Usage: $0 [ -p awsProfile ] [ -r projectResourcePrefix ] " 1>&2 
 }
 exit_abnormal() {                         # Function: Exit with error.
@@ -20,16 +21,17 @@ then
     exit 0
 fi 
 #get params
-while getopts :p:r: flag
+while getopts :p:r:y: flag
 do
     case "${flag}" in
         p) awsProfile=${OPTARG};;
         r) projectResourcePrefix=${OPTARG};;
+        y) awsRegion=${OPTARG};;
     esac
 done
 
-if [ "$projectResourcePrefix" == "" ]; then
-    echo "Error: (opt -p) must have a value"
+if [ "$projectResourcePrefix" == "" || "$awsProfile" == "" || "$awsRegion" == "" ]; then
+    echo "Error: (opt -p, -r and -y) must have a value"
     exit_abnormal
     exit 1
 fi
@@ -61,10 +63,10 @@ for outputFile in .build/*_dynamo.json; do
     #Check if awsProfile has a non-null/non-zero value
     if [ -n "${awsProfile}" ]; then
         echo " - running using local profile '${awsProfile}'"
-        aws dynamodb batch-write-item --region ap-southeast-2 --profile ${awsProfile} --request-items file://$outputFile 
+        aws dynamodb batch-write-item --region ${awsRegion} --profile ${awsProfile} --request-items file://$outputFile 
     else
         echo " - running using default profile"
-        aws dynamodb batch-write-item --region ap-southeast-2 --request-items file://$outputFile
+        aws dynamodb batch-write-item --region ${awsRegion} --request-items file://$outputFile
     fi
 done
 

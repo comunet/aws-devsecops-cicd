@@ -326,6 +326,9 @@ Resources:
           - Name: CURRENT_AWS_ACCOUNT_ID
             Value:
               !Sub "${AWS::AccountId}"
+          - Name: CURRENT_AWS_REGION
+            Value:
+              !Sub "${AWS::Region}"
           - Name: LAMBDA_ROLE
             Value:
               !Ref LambdaExecutionRoleCore
@@ -376,6 +379,9 @@ Resources:
           - Name: CURRENT_AWS_ACCOUNT_ID
             Value:
               !Sub "${AWS::AccountId}"
+          - Name: CURRENT_AWS_REGION
+            Value:
+              !Sub "${AWS::Region}"
           - Name: LAMBDA_ROLE
             Value:
               !Ref LambdaExecutionRoleCore

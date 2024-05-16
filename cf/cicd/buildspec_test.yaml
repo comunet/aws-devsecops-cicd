@@ -35,7 +35,7 @@ phases:
       - cd $CODEBUILD_SRC_DIR/
       - pwd
       # Build DynamoDB configuration data/update
-      - ./cf/cicd/build_dynamo.sh -r $PROJECT_PREFIX
+      - ./cf/cicd/build_dynamo.sh -r $PROJECT_PREFIX -y $CURRENT_AWS_REGION
       # Package Lambdas as ZIP
       - ./cf/cicd/build_lambdas.sh
       # Build Typescript AWS CDK
