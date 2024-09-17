@@ -431,7 +431,7 @@ async function createApp(): Promise<cdk.App> {
           stackSetName: l_stackSetName,
           stackSetTemplateFile: l_stacksetTemplateFile,
           stackDescription: l_stackDescription,
-          description: l_parentStackDescription,
+          // description: l_parentStackDescription,
           retainStacksOnAccountRemoval:
             l_envStackParams.retainStacksOnAccountRemoval === "true"
               ? true
